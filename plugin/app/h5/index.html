@@ -1,0 +1,3489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4F46E5">
+<meta name="description" content="AgentCenter · 本地优先的 Agent 任务中心（H5 独立版）">
+<title>AgentCenter · 任务中心</title>
+<!-- manifest 与图标只在 http(s) 下引用：file:// 直接打开时浏览器会报 CORS 错误（无功能影响，但会污染控制台） -->
+<script>
+(function () {
+  if (!location.protocol.startsWith('http')) return;
+  const add = (rel, href, extra) => {
+    const l = document.createElement('link');
+    l.rel = rel; l.href = href;
+    if (extra) for (const k in extra) l[k] = extra[k];
+    document.head.appendChild(l);
+  };
+  add('manifest', './manifest.webmanifest');
+  add('icon', './icon.svg', { type: 'image/svg+xml' });
+  add('apple-touch-icon', './icon.svg');
+})();
+</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AgentCenter">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{
+  --bg:#F6F8FB; --surface:#FFFFFF; --surface2:#EEF1F6;
+  --line:rgba(15,23,42,.08); --line2:rgba(15,23,42,.17);
+  --tx:#0F172A; --tx2:#475569; --tx3:#8A94A6;
+  --blue:#4F46E5; --blue-bg:#EEF0FE; --blue-d:#4338CA;
+  --green:#15803D; --green-bg:#E8F7EE;
+  --amber:#B45309; --amber-bg:#FDF1E2;
+  --red:#DC2626; --red-bg:#FDECEC;
+  --purple:#7C3AED; --purple-bg:#F3EEFD;
+  --teal:#0E9384; --teal-bg:#E4F6F3;
+  --coral:#EA580C; --coral-bg:#FDEFE4;
+  --r:12px; --sh:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0B0E14; --surface:#12161F; --surface2:#1A2130;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.18);
+    --tx:#E8ECF3; --tx2:#A3ADC2; --tx3:#6B7690;
+    --blue:#8B93FF; --blue-bg:rgba(79,70,229,.26); --blue-d:#A5ACFF;
+    --green:#6EE7A0; --green-bg:rgba(21,128,61,.24);
+    --amber:#F5B860; --amber-bg:rgba(180,83,9,.24);
+    --red:#F87F7F; --red-bg:rgba(220,38,38,.24);
+    --purple:#B79BF7; --purple-bg:rgba(124,58,237,.24);
+    --teal:#5BD4C4; --teal-bg:rgba(14,147,132,.24);
+    --coral:#F9A870; --coral-bg:rgba(234,88,12,.24);
+    --sh:none;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{
+  background:var(--bg);color:var(--tx);
+  font-family:-apple-system,"SF Pro Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:contain;
+}
+button{font-family:inherit;font-size:14px;cursor:pointer;border:0;background:none;color:inherit}
+a{color:inherit;text-decoration:none}
+/* ---------- shell：顶部横向导航 + 满宽内容区 ----------
+   默认不再用左侧竖栏：导航铺在顶部一行，主区域吃掉整个宽度。
+   窄屏只是把这一行允许横向滚动、隐藏分组标题，结构不变。 */
+.shell{display:flex;flex-direction:column;min-height:100vh}
+.side{
+  position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;min-width:0;
+  background:var(--surface);border-bottom:1px solid var(--line);padding:8px 18px;
+}
+.brand{display:flex;align-items:center;gap:8px;flex:0 0 auto;padding:0}
+.brand b{display:block;font-size:13px;font-weight:600;letter-spacing:-.2px;line-height:1.3;white-space:nowrap}
+.brand span{display:none}
+.logo{width:26px;height:26px;border-radius:8px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex:0 0 26px}
+.navwrap{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;position:relative}
+.nav{display:flex;flex-direction:row;align-items:center;gap:2px;flex:1 1 auto;min-width:0;margin:0;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.nav::-webkit-scrollbar{display:none}
+/* 菜单超出可视区域时的左右滚动箭头：只在真能滚的那一侧出现 */
+.navmore{flex:0 0 auto;width:24px;height:26px;padding:0;border-radius:6px;border:1px solid var(--line);
+  background:var(--surface);color:var(--tx2);cursor:pointer;display:none;align-items:center;justify-content:center}
+.navmore[data-show="1"]{display:inline-flex}
+.navmore:hover{background:var(--surface2);color:var(--tx)}
+.navmore:disabled{opacity:.35;cursor:default;background:var(--surface);color:var(--tx3)}
+.navmore svg{width:14px;height:14px}
+.nav-g{display:none}
+.nav a{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:7px;font-size:12.6px;color:var(--tx2);line-height:1.4;white-space:nowrap;flex:0 0 auto}
+.nav a svg{width:15px;height:15px;flex:0 0 15px;opacity:.7}
+.nav a:hover{background:var(--surface2);color:var(--tx)}
+.nav a.on{background:var(--blue-bg);color:var(--blue);font-weight:600}
+.nav a.on svg{opacity:1}
+.nav a em{margin-left:2px;font-style:normal;font-size:10.5px;color:var(--tx3);background:var(--surface2);border-radius:8px;padding:0 6px;line-height:16px}
+.nav a.on em{background:var(--surface);color:var(--blue)}
+.side-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;margin:0;padding:0 0 0 10px;border:0;border-left:1px solid var(--line)}
+.side-foot .btn.block{display:inline-flex;width:auto;height:30px;padding:0 12px;flex:0 0 auto}
+.status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--tx3);padding:0;line-height:1.4;
+  max-width:32vw;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 嵌入 DSH 面板时：连接状态与「立即扫描」由面板工具栏承担，页内不再重复 */
+body[data-embedded="1"] .side-foot{display:none}
+body[data-embedded="1"] #tbStamp{display:none}
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:15px 30px 14px;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--bg) 92%,transparent);
+  backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);
+}
+.topbar h1{font-size:17px;font-weight:600;letter-spacing:-.3px;line-height:1.3}
+.topbar p{font-size:11.5px;color:var(--tx3);margin-top:1px}
+.tb-r{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.wrap{width:100%;max-width:1180px;padding:20px 30px 56px}
+.live{width:7px;height:7px;border-radius:50%;background:var(--tx3);opacity:.5;flex:0 0 7px}
+.live.on{background:var(--green);opacity:1;box-shadow:0 0 0 3px rgba(21,128,61,.16)}
+.iconbtn{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;border:.5px solid var(--line);background:var(--surface);color:var(--tx2)}
+.iconbtn:active{background:var(--surface2)}
+.iconbtn svg{width:17px;height:17px}
+.iconbtn.spin svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ---------- pull to refresh ---------- */
+.ptr{
+  position:fixed;top:calc(6px + env(safe-area-inset-top));left:50%;z-index:40;
+  transform:translate(-50%,-48px);opacity:0;transition:transform .18s ease,opacity .18s ease;
+  display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--tx2);
+  background:var(--surface);border:.5px solid var(--line);border-radius:20px;padding:5px 12px;box-shadow:var(--sh);
+}
+.ptr i{width:11px;height:11px;border-radius:50%;border:1.6px solid var(--line2);border-top-color:var(--blue);display:block}
+.ptr.busy i{animation:spin .7s linear infinite}
+/* ---------- layout ---------- */
+.sec{margin:0 0 16px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.sec-h h2{font-size:13px;font-weight:600;letter-spacing:-.1px;color:var(--tx)}
+.sec-h span{font-size:11px;color:var(--tx3)}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.cols2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}
+.toolbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.toolbar .sp{flex:1}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:15px 17px;box-shadow:var(--sh)}
+.card + .card{margin-top:10px}
+.muted{color:var(--tx3);font-size:12px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px}
+/* ---------- hero ---------- */
+.hero{
+  margin:0 0 16px;border-radius:10px;padding:18px 20px 16px;color:#fff;
+  background:linear-gradient(120deg,#4338CA 0%,#4F46E5 48%,#7C3AED 100%);
+  box-shadow:0 2px 10px rgba(79,70,229,.22);
+}
+.hero .hd{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;opacity:.86}
+.hero .one{font-size:15px;font-weight:600;line-height:1.5;margin:9px 0 2px;letter-spacing:-.2px}
+.hero .sub{font-size:11.5px;opacity:.86}
+.hero .row{display:flex;gap:8px;margin-top:12px;padding-top:11px;border-top:.5px solid rgba(255,255,255,.24)}
+.hero .row>div{flex:1;text-align:left}
+.hero .row b{display:block;font-size:17px;font-weight:600;letter-spacing:-.3px}
+.hero .row span{font-size:10.5px;opacity:.8}
+/* ---------- kpi ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:13px 15px;box-shadow:var(--sh)}
+.kpi .l{font-size:11.5px;color:var(--tx2);display:flex;align-items:center;gap:5px}
+.kpi .v{font-size:23px;font-weight:600;letter-spacing:-.7px;margin-top:3px;line-height:1.2}
+.kpi .s{font-size:10.5px;color:var(--tx3);margin-top:2px}
+.kpi.acc .v{color:var(--blue)} .kpi.warn .v{color:var(--amber)} .kpi.bad .v{color:var(--red)}
+/* 可点击的 KPI 卡片：整卡是链接，hover 时边框与箭头提示「可进入清单」 */
+.kpi.klink{display:block;text-decoration:none;color:inherit;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .12s}
+.kpi.klink:hover{border-color:color-mix(in srgb,var(--blue) 40%,transparent);box-shadow:0 2px 8px rgba(79,70,229,.12);transform:translateY(-1px)}
+.kpi.klink .l{justify-content:space-between}
+.kpi.klink .ka{width:12px;height:12px;flex:0 0 12px;color:var(--tx3);transition:color .15s,transform .15s}
+.kpi.klink:hover .ka{color:var(--blue);transform:translateX(2px)}
+/* ---------- pills / chips ---------- */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;padding:2px 8px;border-radius:20px;white-space:nowrap;font-weight:500}
+.pill i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.done{background:var(--green-bg);color:var(--green)}
+.pill.run{background:var(--blue-bg);color:var(--blue)}
+.pill.int{background:var(--red-bg);color:var(--red)}
+.pill.wait{background:var(--amber-bg);color:var(--amber)}
+.chip{display:inline-flex;align-items:center;font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--surface2);color:var(--tx2)}
+.chip.blue{background:var(--blue-bg);color:var(--blue)}
+.chip.green{background:var(--green-bg);color:var(--green)}
+.chip.amber{background:var(--amber-bg);color:var(--amber)}
+.chip.red{background:var(--red-bg);color:var(--red)}
+.chip.purple{background:var(--purple-bg);color:var(--purple)}
+.chip.teal{background:var(--teal-bg);color:var(--teal)}
+.chip.coral{background:var(--coral-bg);color:var(--coral)}
+/* ---------- filters（桌面端：换行不横滑，方角分段） ---------- */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin:0}
+.filters button{flex:0 0 auto;font-size:12px;color:var(--tx2);background:var(--surface);border:1px solid var(--line);padding:5px 11px;border-radius:7px;line-height:1.5}
+.filters button:hover{border-color:var(--line2);color:var(--tx)}
+.filters button.on{background:var(--blue-bg);color:var(--blue);border-color:color-mix(in srgb,var(--blue) 40%,transparent);font-weight:600}
+/* ---------- 日期工具条（起止日期筛选 + 排序切换） ---------- */
+.dbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.dbar .dlab,.dbar .dsep{font-size:11.5px;color:var(--tx3);flex:0 0 auto}
+/* 原生 input[type=date] 空值时会显示浏览器的 yyyy/mm/dd 占位符，中文界面下很突兀。
+   这里用一层覆盖文字替代占位符：保留原生日期选择器的交互与可访问性，只在空值时显示中文提示。 */
+.dbar .dwrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
+.dbar .dwrap .ph{
+  position:absolute;left:9px;top:50%;transform:translateY(-50%);
+  font-size:12px;color:var(--tx3);pointer-events:none;white-space:nowrap;
+}
+.dbar input[type=date]{
+  font-family:inherit;font-size:12px;color:var(--tx);background:var(--surface);
+  border:1px solid var(--line);border-radius:7px;padding:5px 8px;line-height:1.5;
+  width:126px;min-width:0;
+}
+.dbar input[type=date]:focus{outline:none;border-color:var(--blue)}
+/* 有值时隐藏覆盖文字；空值（:invalid 或 data-empty）时显示 */
+.dbar .dwrap:not(.has-val) input[type=date]{color:transparent}
+.dbar .dwrap.has-val .ph{display:none}
+.dbar .btn{padding:6px 11px;font-size:12px}
+.dbar .dq{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.dbar .dnote{font-size:11px;color:var(--tx3);flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ---------- 人工标记完成 ---------- */
+/* 基础样式与 .trow 无关，列表行与详情页共用；尺寸在各自容器里微调 */
+.mark{display:inline-flex;align-items:center;gap:3px;font-size:11px;line-height:1.5;
+  padding:2px 8px;border-radius:6px;border:1px solid color-mix(in srgb,var(--green) 42%,transparent);
+  background:var(--green-bg);color:var(--green);white-space:nowrap;cursor:pointer;
+  font-family:inherit;font-weight:500}
+.mark svg{width:11px;height:11px;flex:0 0 11px}
+.mark:hover{background:var(--green);color:#fff;border-color:var(--green)}
+.mdone{font-size:10px;line-height:1.5;padding:1px 6px;border-radius:5px;
+  background:var(--surface2);color:var(--tx3);white-space:nowrap}
+/* 列表行里更紧凑：状态徽章下面一行小按钮 */
+.trow .st{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
+.trow .mark{font-size:9.5px;padding:1px 6px;border-radius:5px;gap:3px}
+.trow .mark svg{width:9px;height:9px;flex:0 0 9px}
+.trow .mdone{font-size:9px;padding:1px 5px}
+/* ---------- 对话回放 ---------- */
+.conv-box{min-width:0}
+.conv-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--tx3);margin-top:12px;padding-top:11px;border-top:1px solid var(--line)}
+.conv-src{font-size:10.5px;color:var(--tx3);margin-top:7px;word-break:normal;overflow-wrap:anywhere}
+.conv{margin-top:11px;display:flex;flex-direction:column;gap:8px}
+.cev{border-radius:9px;padding:9px 11px;font-size:12px;line-height:1.62;border-left:3px solid transparent;background:var(--surface2);min-width:0}
+.cev.u{background:var(--blue-bg);border-left-color:var(--blue)}
+.cev.a{background:var(--surface2);border-left-color:var(--blue-d)}
+.cev.k{background:transparent;border-left-color:var(--line2);color:var(--tx3)}
+.cev.t{background:var(--purple-bg);border-left-color:var(--purple)}
+.cev.r{background:var(--surface2);border-left-color:var(--teal);color:var(--tx2)}
+.cev.d{background:var(--amber-bg);border-left-color:var(--amber)}
+.ceh{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:11px;color:var(--tx3);margin-bottom:3px}
+.ceh b{font-size:11.5px;color:var(--tx);font-weight:600}
+.cev.k .ceh b{color:var(--tx3)}
+.ceb{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;color:var(--tx)}
+.cev.k .ceb,.cev.r .ceb{color:var(--tx2)}
+.cex{margin-top:5px;font-size:11px;color:var(--blue);background:none;padding:0}
+.cex:hover{text-decoration:underline}
+.dsr{border-bottom:1px solid var(--line);padding:10px 2px}
+.dsr:last-child{border-bottom:0}
+.dsr-h{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx);font-size:12.5px;flex-wrap:wrap}
+.dsr-h b{font-weight:600}
+.dsr-hit{display:flex;gap:8px;align-items:baseline;margin-top:5px;font-size:11.5px;color:var(--tx2);line-height:1.55}
+.dsr-role{flex:0 0 auto;font-size:10px;padding:0 6px;border-radius:5px;background:var(--surface2);color:var(--tx3)}
+.dsr-role.think{background:var(--purple-bg);color:var(--purple)}
+.dsr-role.user{background:var(--blue-bg);color:var(--blue)}
+.dsr-role.assistant{background:var(--surface2);color:var(--tx2)}
+.dsr-time{flex:0 0 auto;color:var(--tx3);font-variant-numeric:tabular-nums}
+.dsr-text{min-width:0;word-break:break-word;overflow-wrap:anywhere}
+/* 对话正文按 Markdown 渲染：复用 .md-view 的排版，只去掉预格式化并按高度折叠 */
+.ceb.md-body{white-space:normal}
+.ceb.md-body[data-fold="1"]{max-height:300px;overflow:hidden}
+.ceb.md-body>*:first-child{margin-top:0}
+.ceb.md-body>*:last-child{margin-bottom:0}
+.ceb.md-body p{margin:5px 0}
+.ceb.md-body ul.md-l,.ceb.md-body ol.md-l{margin:5px 0;padding-left:20px}
+.ceb.md-body a{color:var(--blue);text-decoration:none}
+.ceb.md-body a:hover{text-decoration:underline}
+.ceb.md-body hr{border:0;border-top:1px solid var(--line);margin:9px 0}
+.conv-meta .grow{flex:1 1 auto}
+.conv-act{font-size:11px;padding:3px 10px;border-radius:7px;border:1px solid var(--line2);background:var(--surface);color:var(--tx2);cursor:pointer;white-space:nowrap;font-family:inherit}
+.conv-act:hover{border-color:var(--blue);color:var(--blue)}
+.link-note{font-size:11.5px;line-height:1.6;color:var(--tx3)}
+.mono.session-id{font-size:11px;color:var(--tx2);word-break:break-all;overflow-wrap:anywhere}
+/* ---------- 日报列表与原文 ---------- */
+.rlist .rrow{display:flex;align-items:flex-start;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.rlist .rrow:last-child{border-bottom:0}
+.rlist .rrow:hover{background:var(--surface2)}
+.rrow .rmain{flex:1;min-width:0}
+.rrow .rmain b{display:block;font-size:12.5px;font-weight:600;color:var(--tx);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.rrow .rmain small{display:block;font-size:11px;color:var(--tx3);line-height:1.55;margin-top:3px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.rrow .rmeta{flex:0 0 auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--tx3)}
+/* Markdown 预览 */
+.md-view{font-size:12.5px;line-height:1.75;color:var(--tx);min-width:0}
+.md-view h3,.md-view h4,.md-view h5{margin:14px 0 6px;font-weight:600;letter-spacing:-.2px}
+.md-view h3{font-size:15px} .md-view h4{font-size:13.5px} .md-view h5{font-size:12.5px}
+.md-view h3:first-child,.md-view h4:first-child{margin-top:0}
+.md-view p{margin:5px 0}
+.md-view .md-q{background:var(--blue-bg);color:var(--blue-d);padding:8px 11px;border-radius:8px;margin:6px 0;font-size:12px}
+.md-view ul.md-l{margin:6px 0;padding-left:18px}
+.md-view ul.md-l li{margin:2px 0}
+.md-view code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;
+  background:var(--surface2);padding:1px 4px;border-radius:4px}
+.md-view table.md-t{width:100%;border-collapse:collapse;margin:8px 0;font-size:11.5px;display:block;overflow-x:auto}
+.md-view table.md-t th,.md-view table.md-t td{border:1px solid var(--line);padding:5px 8px;text-align:left;white-space:nowrap}
+.md-view table.md-t th{background:var(--surface2);font-weight:600}
+.md-view pre.md-code{margin:7px 0;padding:9px 11px;border-radius:8px;background:var(--surface2);
+  border:1px solid var(--line);overflow-x:auto}
+.md-view pre.md-code code{background:none;padding:0;font-size:11px;line-height:1.6;white-space:pre}
+.md-view hr{border:0;border-top:1px solid var(--line);margin:9px 0}
+.md-view ol.md-l{margin:6px 0;padding-left:20px}
+.md-view a{color:var(--blue);text-decoration:none}
+.md-view a:hover{text-decoration:underline}
+/* ---------- 概览「进行中任务」紧凑行 ---------- */
+.tbl.compact .crow{display:block;padding:10px 14px;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}
+.tbl.compact .crow:last-child{border-bottom:0}
+.tbl.compact .crow:hover{background:var(--surface2)}
+.crow .cmain{min-width:0}
+.crow .cmain b{display:block;font-size:12.5px;font-weight:600;letter-spacing:-.1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .cmain small{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:10px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.crow .cmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--tx3)}
+.crow .cmeta .pill{font-size:10px;padding:1px 7px}
+.crow .cmeta .chip{font-size:10px;padding:1px 7px}
+/* ---------- 任务分组 ---------- */
+.grp-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.grp-tools .glab{font-size:11.5px;color:var(--tx3);flex:0 0 auto}
+/* 分组层级按钮复用 .filters 的按钮样式 */
+.grp-tools button{flex:0 0 auto;font-size:12px;color:var(--tx2);background:var(--surface);border:1px solid var(--line);padding:5px 11px;border-radius:7px;line-height:1.5}
+.grp-tools button:hover{border-color:var(--line2);color:var(--tx)}
+/* 已选维度的层级序号 */
+.grp-tools button .ord{display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:50%;background:var(--blue);color:#fff;
+  font-size:9.5px;font-style:normal;font-weight:600;margin-right:4px;vertical-align:middle}
+.gchain{font-size:11.5px;color:var(--tx2);display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.gchain em{font-style:normal;color:var(--tx3)}
+.gnone{font-size:11.5px;color:var(--tx3)}
+/* 嵌套层级：每深一层加左缩进 + 顶部细线，视觉上形成树 */
+.grp.lv1{margin-left:14px}
+.grp.lv2{margin-left:28px}
+.grp.lv3{margin-left:42px}
+.grp.lv1 .grp-h,.grp.lv2 .grp-h,.grp.lv3 .grp-h{background:transparent;border-top:1px solid var(--line)}
+.grp.lv1,.grp.lv2,.grp.lv3{border:0;box-shadow:none;border-radius:0;background:transparent}
+.grp.lv1>.grp-b,.grp.lv2>.grp-b,.grp.lv3>.grp-b{border-left:1px solid var(--line);margin-left:6px}
+.grp-h .glv{flex:0 0 auto;font-size:9.5px;color:var(--tx3);background:var(--surface);
+  border:1px solid var(--line);border-radius:5px;padding:1px 5px;line-height:1.5;white-space:nowrap}
+.grp.open>.grp-h .glv{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 35%,transparent)}
+.grp{margin-bottom:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);box-shadow:var(--sh)}
+.grp-h{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--surface2);cursor:pointer;user-select:none;min-width:0}
+.grp-h:hover{background:var(--blue-bg)}
+.grp-h .cr{flex:0 0 auto;width:12px;height:12px;transition:transform .15s;color:var(--tx3)}
+.grp.open .grp-h .cr{transform:rotate(90deg)}
+.grp-h .gt{flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.grp-h .gm{flex:0 0 auto;font-size:11px;color:var(--tx3);display:flex;gap:8px;align-items:center}
+.grp-b{display:none}
+.grp.open .grp-b{display:block}
+.grp-b .tbl{border:0;box-shadow:none;border-radius:0}
+/* ---------- search ---------- */
+.search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:6px 11px;width:320px;max-width:100%}
+.search input{flex:1;border:0;background:none;font-size:12.5px;color:var(--tx);outline:none;font-family:inherit}
+.search svg{width:14px;height:14px;color:var(--tx3);flex:0 0 14px}
+/* ---------- 任务表（桌面端） ---------- */
+.tbl{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--sh)}
+.tbl-h,.trow{display:grid;grid-template-columns:var(--tc,82px minmax(0,1fr) 104px 70px 74px 112px 112px);gap:12px;align-items:center;padding:9px 16px}
+.tbl-h{font-size:10px;color:var(--tx3);letter-spacing:.05em;background:var(--surface2);border-bottom:1px solid var(--line);text-transform:uppercase}
+.tbl-h .n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl-h .dim{font-variant-numeric:tabular-nums}
+.trow{border-bottom:1px solid var(--line);font-size:12.5px;color:var(--tx);transition:background .12s}
+.trow:last-child{border-bottom:0}
+.trow:hover{background:var(--surface2)}
+.trow .tt{min-width:0}
+.trow .tt b{display:block;font-size:12.8px;font-weight:600;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow .tt small{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.trow .n{text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--tx2)}
+.trow .dim{font-size:11.5px;color:var(--tx3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.trow .st .pill{font-size:10px;padding:1px 7px}
+.trow .ag .chip{font-size:10px;padding:1px 7px}
+/* 时间单元：年月日在上、时间在下（两行），列宽再怎么拖也不会挤成一行 */
+.trow .dstart,.trow .dend{display:flex;flex-direction:column;line-height:1.3;min-width:0}
+.trow .ds1{font-size:11px;color:var(--tx2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.trow .ds2{font-size:10.5px;color:var(--tx3);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 列宽可拖动：表头每格右边缘的抓手 */
+.tbl-h .hcell{position:relative;min-width:0}
+.tbl-h .hcell .rz{position:absolute;top:-9px;right:-9px;width:12px;height:34px;cursor:col-resize;z-index:3;display:block}
+.tbl-h .hcell .rz:after{content:"";position:absolute;top:9px;bottom:9px;left:5px;width:1px;background:var(--line)}
+.tbl-h .hcell .rz:hover:after,.tbl-h .hcell .rz:active:after{background:var(--blue);width:2px}
+/* 下拉：状态 / 排序 / 分组，统一成同一套外观 */
+.sel{appearance:none;-webkit-appearance:none;height:30px;padding:0 26px 0 10px;border-radius:8px;
+  border:1px solid var(--line);background-color:var(--surface);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238c8c93' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 8px center;background-size:12px 12px;
+  color:var(--tx);font-size:12px;line-height:28px;cursor:pointer;max-width:210px;flex:0 0 auto}
+.sel:hover{border-color:var(--line2)}
+.sel:focus{outline:2px solid var(--blue-bg);outline-offset:1px}
+.kv dd.pth{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11.5px;color:var(--tx2);line-height:1.5;word-break:normal;overflow-wrap:anywhere}
+/* ---------- bars ---------- */
+.brow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;margin-bottom:5px}
+.brow .v{color:var(--tx2);font-size:11px;flex:0 0 auto}
+.bar{height:7px;border-radius:4px;background:var(--surface2);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:4px}
+.bwrap + .bwrap{margin-top:11px}
+/* ---------- list rows ---------- */
+.row{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:.5px solid var(--line)}
+.row:last-child{border-bottom:0;padding-bottom:0}
+.row:first-child{padding-top:0}
+.row .ic{width:32px;height:32px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:0 0 32px;color:var(--tx2)}
+.row .ic svg{width:16px;height:16px}
+.row .b{flex:1;min-width:0}
+.row .b .t{font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px}
+.row .b .d{font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r{flex:0 0 auto;font-size:12px;color:var(--tx2);text-align:right}
+/* ---------- todo ---------- */
+.todo{display:flex;gap:11px;padding:11px 0;border-bottom:.5px solid var(--line);align-items:flex-start}
+.todo:last-child{border-bottom:0;padding-bottom:0}
+.todo:first-child{padding-top:0}
+.cbx{width:19px;height:19px;border-radius:6px;border:1.5px solid var(--line2);flex:0 0 19px;margin-top:1px;display:flex;align-items:center;justify-content:center;background:var(--surface)}
+.cbx.on{background:var(--green);border-color:var(--green)}
+.cbx svg{width:12px;height:12px;color:#fff;opacity:0}
+.cbx.on svg{opacity:1}
+.todo .b{flex:1;min-width:0}
+.todo .t{font-size:13px;line-height:1.5}
+.todo.done .t{text-decoration:line-through;color:var(--tx3)}
+.todo .m{font-size:11px;color:var(--tx3);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+/* ---------- detail ---------- */
+.back{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--blue);margin:0 0 10px;padding:2px 0}
+/* 二级页已成为侧栏一级入口，不再需要「返回」 */
+div.back{display:none}
+.back svg{width:14px;height:14px}
+.dhead{margin:0 0 16px}
+.dhead h2{font-size:18px;font-weight:600;line-height:1.42;letter-spacing:-.3px}
+.dhead .dm{display:flex;gap:7px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:74px 1fr;gap:9px 12px;font-size:12.5px}
+.kv dt{color:var(--tx3);font-size:12px}
+.kv dd{color:var(--tx);word-break:break-word}
+.tl{position:relative;padding-left:19px;margin-top:4px}
+.tl:before{content:"";position:absolute;left:5px;top:6px;bottom:4px;width:1px;background:var(--line)}
+.ev{position:relative;padding-bottom:14px}
+.ev:last-child{padding-bottom:0}
+.ev:before{content:"";position:absolute;left:-17px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--surface);border:1.5px solid var(--line2)}
+.ev.u:before{border-color:var(--blue)} .ev.a:before{border-color:var(--teal)} .ev.t:before{border-color:var(--amber)}
+.ev .eh{display:flex;gap:8px;align-items:baseline;font-size:11.5px;color:var(--tx3)}
+.ev .eh b{font-size:12px;color:var(--tx);font-weight:600}
+.ev .eb{font-size:12.5px;color:var(--tx2);margin-top:3px}
+.tool{background:var(--surface2);border-radius:8px;padding:8px 10px;margin-top:6px;font-size:11px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--tx2);overflow-x:auto;white-space:pre;line-height:1.7}
+.frow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:.5px solid var(--line);font-size:12px}
+.frow:last-child{border-bottom:0;padding-bottom:0}
+.frow:first-child{padding-top:0}
+.frow .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px}
+.frow .fs{flex:0 0 auto;color:var(--tx3);font-size:11px}
+/* ---------- callout ---------- */
+.callout{display:flex;gap:10px;padding:12px 13px;border-radius:var(--r);font-size:12px;line-height:1.55}
+.callout.red{background:var(--red-bg);color:var(--red)}
+.callout.amber{background:var(--amber-bg);color:var(--amber)}
+.callout.blue{background:var(--blue-bg);color:var(--blue)}
+.callout b{font-weight:600}
+/* ---------- empty ---------- */
+.empty{text-align:center;padding:36px 20px;color:var(--tx3);font-size:12.5px}
+.empty b{display:block;font-size:13px;color:var(--tx2);margin-bottom:3px}
+/* ---------- trend / layers / cmd ---------- */
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}
+/* 趋势柱：14 根柱若各占 flex:1，在宽屏会被拉成一根根宽条而「贴在一起」。
+   改为限宽窄柱 + 等距分布，柱与柱之间始终留出可分辨的间隔。
+   标签行按同一网格排布（首尾靠边、中间均分），避免「10-17」压在首柱上。 */
+.trend{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));align-items:flex-end;
+  justify-items:center;column-gap:4px;height:76px;margin-top:6px}
+.trend i{width:100%;max-width:18px;min-width:4px;background:var(--blue);border-radius:3px 3px 0 0;opacity:.55;min-height:3px}
+.trend i.hi{opacity:1}
+.trend i.tod{background:var(--blue-d);opacity:1}
+.trend-l{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:9.5px;color:var(--tx3);margin-top:5px}
+.cmd{background:var(--surface2);border-radius:9px;padding:10px 11px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  font-size:10.5px;line-height:1.8;color:var(--tx2);overflow-x:auto;white-space:pre}
+.layer{border:.5px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--surface)}
+.layer .lh{display:flex;align-items:center;gap:7px;margin-bottom:7px;flex-wrap:wrap}
+.layer .lh b{font-size:12px}
+.layer .lh span{font-size:10.5px;color:var(--tx3)}
+.layer .li{display:flex;gap:6px;flex-wrap:wrap}
+.down{text-align:center;color:var(--tx3);font-size:10.5px;padding:5px 0}
+/* ---------- config center ---------- */
+.cfg{padding:11px 0;border-bottom:.5px solid var(--line)}
+.cfg:last-child{border-bottom:0;padding-bottom:0}
+.cfg:first-child{padding-top:0}
+.cfg-h{display:flex;align-items:center;gap:8px}
+.cfg-h .n{font-size:13px;font-weight:500}
+.cfg-h .sw{margin-left:auto}
+.cfg-p{margin-top:6px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10.5px;color:var(--tx2);
+  background:var(--surface2);border-radius:7px;padding:6px 9px;word-break:normal;overflow-wrap:anywhere;cursor:pointer}
+.cfg-m{font-size:10.5px;color:var(--tx3);margin-top:6px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.fld{margin-top:10px}
+.fld label{font-size:11px;color:var(--tx3);display:block;margin-bottom:4px}
+.fld input,.fld select{width:100%;border:.5px solid var(--line2);background:var(--surface2);border-radius:9px;
+  padding:8px 10px;font-size:12px;color:var(--tx);font-family:inherit;outline:none;box-sizing:border-box}
+.fld input:focus,.fld select:focus{border-color:var(--blue)}
+/* 桌面端：监控对象两列、表单两列 */
+.cfg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 26px}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+/* ---------- 响应式：顶部导航本来就是一行，窄屏只收紧间距与字号 ---------- */
+@media (max-width:1000px){
+  /* 顶栏一行放不下时：品牌与状态下沉到第二行，导航独占第一行（仍然不回到左侧竖栏）。 */
+  .side{display:grid;grid-template-columns:auto minmax(0,1fr);
+    grid-template-areas:"brand foot" "nav nav";
+    align-items:center;gap:6px 10px;padding:8px 12px}
+  .brand{grid-area:brand}
+  .navwrap{grid-area:nav}
+  .side-foot{grid-area:foot;justify-content:flex-end;border-left:0;padding-left:0;min-width:0}
+  .side-foot .btn.block{display:inline-flex}
+  .nav a em{display:none}
+  .topbar{padding:13px 18px 12px}
+  .wrap{padding:16px 18px 40px}
+  .cols2{grid-template-columns:1fr}
+}
+@media (max-width:900px){
+  /* FR-UI-09：820px 视口下侧栏已转为顶部横条，需要保证横条可横向滚动但不撑破页面 */
+  .side{overflow-x:auto;scrollbar-width:none}
+  .side::-webkit-scrollbar{display:none}
+  .topbar{padding:12px 16px 11px}
+  .wrap{padding:14px 16px 36px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tbl-h{display:none}
+  /* 卡片模式：状态 | 标题+目录 | 开始 | 结束。
+     两个日期列保留（日期是任务的关键信息），只隐藏活跃/空间/Agent。 */
+  .trow{grid-template-columns:62px minmax(0,1fr) auto auto;gap:8px;padding:10px 13px;align-items:start}
+  .trow .n,.trow .ag{display:none}
+  .trow .dim{display:block;font-size:10.5px;text-align:right;line-height:1.5;white-space:nowrap}
+  /* 卡片模式仍保持「年月日在上、时间在下」两行 */
+  .trow .dstart,.trow .dend{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
+  .search{width:100%}
+  .cfg-grid,.form-grid{grid-template-columns:1fr}
+}
+@media (max-width:420px){
+  /* 390px：完整年月日横向放不下，日期区改为右侧竖排两行；
+     状态列留够「标记完成」按钮的宽度，避免按钮压到标题上。 */
+  .trow{grid-template-columns:74px minmax(0,1fr) auto;gap:6px 8px;padding:9px 11px;align-items:start}
+  .trow .dstart{grid-column:3;grid-row:1;text-align:right;font-size:10px;line-height:1.5}
+  .trow .dend{grid-column:3;grid-row:2;text-align:right;font-size:10px;line-height:1.5}
+  .trow .tt{grid-column:2;grid-row:1 / span 2}
+  .trow .tt small{font-size:9.5px}
+  .trow .tt b{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .trow .mark{font-size:9px;padding:1px 5px}
+  .side{padding:7px 10px}
+  .brand{padding:0 6px 0 0}
+  .nav a{padding:6px 8px;font-size:12px}
+  .topbar{padding:11px 12px 10px}
+  .wrap{padding:12px 12px 32px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .kpi{padding:11px 12px}
+  .kpi .v{font-size:20px}
+  .hero{padding:14px 15px}
+  .hero .row b{font-size:15px}
+  .filters button{padding:5px 9px;font-size:11.5px}
+  .card{padding:13px}
+  .kv{grid-template-columns:62px minmax(0,1fr)}
+}
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:28px;transform:translate(-50%,10px);
+  background:rgba(28,28,26,.92);color:#fff;font-size:12.5px;padding:9px 16px;border-radius:20px;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:60;max-width:78vw;text-align:center;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+/* ---------- misc ---------- */
+.note{font-size:11px;color:var(--tx3);line-height:1.6;margin-top:9px}
+.divider{height:.5px;background:var(--line);margin:13px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:10px;font-size:13px;border:.5px solid var(--line2);background:var(--surface);color:var(--tx)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.block{display:flex;width:100%}
+.btn:active{opacity:.85}
+.btn:disabled{opacity:.45;cursor:default}
+.sw{width:40px;height:23px;border-radius:12px;background:var(--line2);position:relative;flex:0 0 40px;transition:background .15s}
+.sw:after{content:"";position:absolute;left:2px;top:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.sw.on{background:var(--blue)}
+.sw.on:after{left:19px}
+.foot{padding:10px 0 0;text-align:center;color:var(--tx3);font-size:10.5px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">AC</div>
+      <div><b>AgentCenter</b><span>Agent 任务中心</span></div>
+    </div>
+
+    <div class="navwrap">
+      <button class="navmore" id="navL" type="button" aria-label="菜单向左" title="菜单向左" data-show="0"
+        onclick="scrollNav(-1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg>
+      </button>
+      <nav class="nav" id="nav">
+      <div class="nav-g">工作台</div>
+      <a href="#/home" data-nav="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>
+        <span>概览</span>
+      </a>
+      <a href="#/tasks" data-nav="tasks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="2.4"/></svg>
+        <span>任务</span><em id="navTasks">0</em>
+      </a>
+      <a href="#/todos" data-nav="todos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M8 12.4l2.6 2.6L16.2 9"/></svg>
+        <span>待办</span><em id="navTodos">0</em>
+      </a>
+      <a href="#/reports" data-nav="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4V20a1 1 0 01-1 1H6a1 1 0 01-1-1V4.5a1 1 0 011-1z"/><path d="M14 3.5V8h4"/><path d="M8.5 12h7M8.5 15.5h4.5"/></svg>
+        <span>日报</span><em id="navReports">0</em>
+      </a>
+      <a href="#/space" data-nav="space">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+        <span>空间</span>
+      </a>
+
+      <div class="nav-g">配置与接入</div>
+      <a href="#/config" data-nav="config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h8M17 7h3M4 17h3M12 17h8"/><circle cx="14.5" cy="7" r="2.4"/><circle cx="9.5" cy="17" r="2.4"/></svg>
+        <span>监控对象</span>
+      </a>
+      <a href="#/sched" data-nav="sched">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg>
+        <span>扫描调度</span>
+      </a>
+      <a href="#/conn" data-nav="conn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7V4M15 7V4M7 7h10v5a5 5 0 01-10 0z"/><path d="M12 17v3"/></svg>
+        <span>Agent 接入</span>
+      </a>
+      <a href="#/arch" data-nav="arch">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="5" rx="1.6"/><rect x="3.5" y="15.5" width="17" height="5" rx="1.6"/><path d="M12 8.5v7"/></svg>
+        <span>系统架构</span>
+      </a>
+      <a href="#/report" data-nav="report">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4V20a1 1 0 01-1 1H6a1 1 0 01-1-1V4.5a1 1 0 011-1z"/><path d="M14 3.5V8h4M8.5 12.5h7M8.5 16h4.5"/></svg>
+        <span>日报设置</span>
+      </a>
+
+      <div class="nav-g">其他</div>
+      <a href="#/me" data-nav="me">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/></svg>
+        <span>设置与关于</span>
+      </a>
+    </nav>
+      <button class="navmore" id="navR" type="button" aria-label="菜单向右" title="菜单向右" data-show="0"
+        onclick="scrollNav(1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg>
+      </button>
+    </div>
+
+    <div class="side-foot">
+      <div class="status"><span class="live" id="live" title="本地服务状态"></span><span id="abSub">正在连接…</span></div>
+      <button class="btn block" id="btnRefresh" title="立即扫描">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">
+          <path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>
+        </svg>立即扫描</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pgTitle">概览</h1>
+        <p id="pgSub">正在读取本地会话记录…</p>
+      </div>
+      <div class="tb-r">
+        <span class="chip" id="tbStamp">上次扫描 —</span>
+      </div>
+    </header>
+    <div class="wrap" id="view"></div>
+
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 数据（演示数据；接入守护进程后由 /api/summary 覆盖） ============ */
+const AGENTS = [];   // 真实数据由 /api/summary 填充；离线兜底见 ensureOfflineFallback()
+
+const TASKS = [];   // 真实数据由 /api/summary 填充
+
+/* 任务的物理路径：dir = 任务工作目录，src = 该任务会话记录的源文件（各 Agent 默认存储位置） */
+/* Windows 路径按段拼接，避免源码里的反斜杠转义出错 */
+const WIN = (...seg) => seg.join('\\');
+/* 各 Agent 的默认对话记录路径（与《Agent 适配器规格》一致）。
+   注意：这些只是「离线时用于展示」的路径约定，真实路径一律由服务端 /api/summary 下发，
+   不再写死某台机器的用户名。 */
+const AGPATH = {
+  workbuddy:  '~/.workbuddy/projects',
+  codebuddy:  '%APPDATA%/CodeBuddy CN/codebuddy-sessions.vscdb',
+  atomcode:   '~/.atomcode/sessions',
+  opencode:   '~/.local/share/opencode/opencode.db',
+  deepseek:   '~/.dsh/sessions',
+  qwen:       '%APPDATA%/Tongyi',
+  trae:       '%APPDATA%/Trae/User/globalStorage',
+  qoder:      '~/.qoder-cn/projects',
+  zcode:      '~/.zcode/sessions',
+  codex:      '~/.codex/sessions',
+  claudecode: '~/.claude/projects',
+  doubao:     '%APPDATA%/Bytedance/Doubao'
+};
+const AGKIND = {
+  workbuddy:'JSONL', codebuddy:'SQLite', atomcode:'JSONL', opencode:'SQLite',
+  deepseek:'zstd JSONL', qwen:'Electron 存储', trae:'SQLite',
+  zcode:'JSONL', codex:'JSONL', claudecode:'JSONL', qoder:'JSONL', doubao:'Electron 存储'
+};
+AGENTS.forEach((a) => { a.path = AGPATH[a.id] || ''; a.kind = AGKIND[a.id] || 'JSONL'; a.on = a.inst; });
+
+
+
+/* 演示数据补日期字段（真实数据由 applySummary 填充）：跨 3 天，便于验证日期筛选与排序 */
+
+
+
+const TODOS = [];   // 真实数据由 /api/summary 填充
+
+const FILES = [];   // 真实数据由 /api/summary 填充
+
+/* 近 14 天：完成任务数与活跃时长（分钟），用于趋势图与「近 7 天 / 近 14 天」汇总 */
+const TREND = [];   // 真实数据由 /api/summary 填充
+
+/* 任务详情的时间线 / 文件（演示） */
+
+
+/* ============ 真实数据接入（/api/summary → 演示数据形态） ============ */
+/* 服务端契约字段（见《展示形态与H5方案》§6.2）与页面内部结构不同：
+   这里做一次映射，页面渲染函数无需感知数据来源。 */
+const ST_MAP = { completed: 'done', running: 'run', interrupted: 'int', waiting: 'wait', failed: 'int', pending: 'wait' };
+
+function applySummary(data) {
+  if (!data || !Array.isArray(data.tasks)) return false;
+  // Agent 列表：完全以服务端为准重建（含用户新增的自定义适配器，不能只匹配内置名单）。
+  // 配色按 id 稳定分配，避免刷新后颜色漂移。
+  const TONES = ['blue', 'teal', 'purple', 'green', 'coral', 'amber'];
+  const prevById = {};
+  AGENTS.forEach((a) => { prevById[a.id] = a; });
+  const realAgents = (data.agents || []).map((r, i) => ({
+    id: r.id,
+    name: r.name || r.id,
+    inst: !!r.installed,
+    sess: r.sessions || 0,
+    size: (r.bytes || 0),
+    path: r.path || '',
+    kind: r.kind || 'JSONL',
+    tasks: r.tasks || 0,
+    custom: !!r.custom,
+    disabled: !!r.disabled,
+    // 配色：优先沿用上一轮，其次按位置分配
+    tone: (prevById[r.id] && prevById[r.id].tone) || TONES[i % TONES.length],
+    on: prevById[r.id] ? prevById[r.id].on : !!r.installed
+  }));
+  AGENTS.length = 0;
+  AGENTS.push(...realAgents);
+
+  // 任务
+  const list = data.tasks.map((t, i) => ({
+    id: String(t.id || 't' + i),
+    a: t.agent || '未知',
+    title: t.title || '未命名任务',
+    proj: t.project || '—',
+    s: t.start || '—',
+    e: t.end || null,
+    // 年月日：来自服务端的 ISO 起止时间；用于展示、排序与日期筛选
+    sd: (t.startedAt || '').slice(0, 10),
+    ed: (t.endedAt || '').slice(0, 10) || (t.startedAt || '').slice(0, 10),
+    ts: Date.parse(t.startedAt) || 0,
+    te: Date.parse(t.endedAt) || Date.parse(t.startedAt) || 0,
+    wall: t.wallMinutes || 0,
+    act: t.activeMinutes || 0,
+    st: ST_MAP[t.status] || 'wait',
+    msg: t.messages || 0,
+    tc: t.toolCalls || 0,
+    sp: (t.bytes || 0),
+    files: t.files || 0,
+    todo: t.todos || 0,
+    reason: t.statusReason || '',
+    dir: t.dir || '',
+    src: t.src || '',
+    preview: t.lastMessagePreview || '',
+    // 会话标识：同一会话可切分出多个任务（按 >30min 用户消息间隔），用于「按会话」分组
+    sid: t.sessionId || '',
+    fv: (t.formatVersion === undefined ? null : t.formatVersion),
+    // 人工覆盖：用户已把「已中断 / 等待确认」标记为完成，保留原始判定以便回溯
+    manual: !!t.manualDone,
+    manualAt: t.manualDoneAt || null,
+    autoSt: t.autoStatus ? (ST_MAP[t.autoStatus] || null) : null
+  }));
+  TASKS.length = 0;
+  TASKS.push(...list);
+
+  // 待办
+  const todos = Array.isArray(data.todos) ? data.todos : [];
+  TODOS.length = 0;
+  TODOS.push(...todos.map((t) => ({ t: t.text, a: t.agent, p: t.project, done: !!t.done, id: t.id })));
+  // 本地勾选按 id 持久化：服务端待办增减后仍能恢复用户的勾选状态，
+  // 不再因为数组长度变化就整体丢弃 localStorage（那会让勾选看起来「点了没反应」）
+  const savedTodoMap = readTodoMap();
+  state.todos = TODOS.map((x, i) => {
+    const local = savedTodoMap[x.id || ('idx' + i)];
+    return local === undefined ? !!x.done : !!local;
+  });
+
+  // 中间文件
+  const inter = Array.isArray(data.intermediates) ? data.intermediates : [];
+  FILES.length = 0;
+  FILES.push(...inter.map((f) => ({
+    p: f.path, n: f.label || f.path, a: f.agent || '—',
+    sz: (f.bytes || 0), kind: f.reclaimable === false ? '保留' : '回收'
+  })));
+
+  // 趋势
+  if (Array.isArray(data.trend) && data.trend.length) {
+    TREND.length = 0;
+    TREND.push(...data.trend.map((d) => ({ d: d.d, n: d.n || 0, act: d.act || 0 })));
+  }
+
+  state.generatedAt = data.generatedAt || '';
+  state.newBytes = (data.summary && data.summary.newBytes) || 0;
+  state.live = true;
+  return true;
+}
+
+/* 读取 /api/summary；失败静默降级到演示数据（FR-UI-10，不弹错误框、不阻塞） */
+async function loadSummary() {
+  if (!location.protocol.startsWith('http')) return false;
+  try {
+    const r = await fetch('api/summary?range=' + encodeURIComponent(state.range), { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    if (!j || !j.ok || !j.data) return false;
+    return applySummary(j.data);
+  } catch (e) { return false; }
+}
+
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+/* 路径在换行时按分隔符断开，避免从词中间劈开 */
+const brkPath = (p) => esc(p || '—').split('\\').join('\\' + String.fromCharCode(8203));
+/* 体积格式化：入参为字节。小于 1 KB 也要显示，避免小库一律显示 0.00 MB 让人以为统计失效 */
+const fmtB = (bytes) => {
+  const b = Number(bytes) || 0;
+  if (b >= 1024 * 1024 * 1024) return (b / 1073741824).toFixed(1) + ' GB';
+  if (b >= 1024 * 1024) return (b / 1048576).toFixed(b < 10 * 1048576 ? 2 : 0) + ' MB';
+  if (b >= 1024) return Math.round(b / 1024) + ' KB';
+  return b > 0 ? b + ' B' : '0';
+};
+const fmt = fmtB;
+const hm = (min) => min >= 60 ? Math.floor(min / 60) + 'h' + (min % 60 ? (min % 60) + 'm' : '') : min + 'm';
+const STL = { done:'已完成', run:'进行中', int:'已中断', wait:'等待确认' };
+const tone = (a) => (AGENTS.find((x) => x.name === a) || {}).tone || 'blue';
+const badge = (a) => '<span class="chip ' + tone(a) + '">' + esc(a) + '</span>';
+const pill = (st) => '<span class="pill ' + st + '"><i></i>' + STL[st] + '</span>';
+
+const state = {
+  range: 'today',
+  filter: 'all',
+  aFilter: 'all',
+  q: '',
+  // 搜索范围：title=标题/项目/Agent（默认，纯前端）；content=会话正文；think=含模型思考
+  qScope: 'title',
+  deep: null,          // { loading, error, ms, count, items }
+  // 任务清单的日期维度：按哪个时间排序（end=截止/结束，start=开始）+ 方向 + 起止日期筛选
+  sortKey: 'end',
+  sort: 'desc',
+  // 任务表列宽（第 2 列为弹性列，其余为像素）；启动时由 loadCols() 用 localStorage 覆盖
+  colW: [82, 0, 104, 70, 74, 112, 112],
+  dateFrom: '',
+  dateTo: '',
+  // 分组层级数组：[] = 不分组；[agent, proj, session] = 三级嵌套
+  groupLevels: [],
+  groupOpen: {},
+  lastScan: '—',
+  servicePort: 7788,
+  // 环境能力：Node 缺 zstd 时 nodeNotice 会是一句可读的原因（显示在「设置与关于」）
+  zstd: true,
+  nodeNotice: '',
+  online: false,
+  live: false,
+  editing: -1,
+  prev: '#/home',
+  todos: TODOS.map((x) => !!x.done),
+  seen: false
+};
+
+/* ============ 汇总计算 ============ */
+function summary() {
+  const t = TASKS;
+  const done = t.filter((x) => x.st === 'done').length;
+  const run = t.filter((x) => x.st === 'run').length;
+  const intr = t.filter((x) => x.st === 'int').length;
+  const wait = t.filter((x) => x.st === 'wait').length;
+  const act = t.reduce((s, x) => s + x.act, 0);
+  const wall = t.reduce((s, x) => s + (x.wall || 12), 0);
+  const sp = t.reduce((s, x) => s + x.sp, 0);
+  const pending = state.todos.filter((x) => !x).length;
+  const totalSize = AGENTS.filter((a) => a.inst).reduce((s, a) => s + a.size, 0);
+  return { n: t.length, done, run, intr, wait, act, wall, sp, pending, totalSize };
+}
+
+function byAgent() {
+  const m = {};
+  TASKS.forEach((t) => {
+    m[t.a] = m[t.a] || { n: 0, act: 0, sp: 0 };
+    m[t.a].n++; m[t.a].act += t.act; m[t.a].sp += t.sp;
+  });
+  return Object.entries(m).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.act - a.act);
+}
+
+/* ============ 组件 ============ */
+/* KPI 卡片；传 href 时整张卡片可点击跳转（带箭头提示与 hover 反馈） */
+function kpiCard(label, value, sub, cls, href) {
+  if (href) {
+    return '<a class="kpi klink ' + (cls || '') + '" href="' + esc(href) + '">' +
+      '<div class="l">' + label + '<svg class="ka" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></div>' +
+      '<div class="v">' + value + '</div><div class="s">' + sub + '</div></a>';
+  }
+  return '<div class="kpi ' + (cls || '') + '"><div class="l">' + label + '</div>' +
+    '<div class="v">' + value + '</div><div class="s">' + sub + '</div></div>';
+}
+
+/* 路径过长时从中间省略，保留盘符/根与叶子目录，完整值放在 title 里 */
+function midPath(p, n) {
+  n = n || 40;
+  if (!p || p.length <= n) return p;
+  const head = 12, tail = n - head - 1;
+  return p.slice(0, head) + '…' + p.slice(p.length - tail);
+}
+
+/* 任务表：状态 | 标题 + 工作目录 | Agent | 活跃 | 空间 | 开始 | 结束 */
+function taskRow(t) {
+  const tip = (t.dir || '—') + (t.src ? '\n会话文件：' + t.src : '');
+  return '<a class="trow" href="#/task/' + t.id + '">' +
+    '<span class="st">' + pill(t.st) + markBtn(t) + '</span>' +
+    '<span class="tt"><b>' + esc(t.title) + '</b>' +
+      '<small title="' + esc(tip) + '">' + esc(t.dir ? midPath(t.dir, 72) : '—') + '</small></span>' +
+    '<span class="ag">' + badge(t.a) + '</span>' +
+    '<span class="n">' + hm(t.act) + '</span>' +
+    '<span class="n">' + fmt(t.sp) + '</span>' +
+    '<span class="dim dstart">' + dateStack(t.sd, t.s) + '</span>' +
+    '<span class="dim dend">' + dateStack(t.ed || t.sd, t.e, '进行中') + '</span>' +
+  '</a>';
+}
+const taskCard = taskRow;
+
+/* 「标记完成」按钮：只对已中断 / 等待确认的任务显示。
+   点击只写本机索引（data/overrides.json），不改 Agent 原始会话；
+   行本身是 <a>，所以必须阻止默认跳转与冒泡。
+   taskId 含 @ 与冒号，不能拼进内联 onclick（会破坏属性），改用 data-id + 事件委托。 */
+const MARKABLE = { int: true, wait: true };
+function markBtn(t) {
+  if (t.manual) return '<span class="mdone" title="人工标记完成于 ' + esc(t.manualAt || '—') + '">人工完成</span>';
+  if (!MARKABLE[t.st]) return '';
+  const label = t.st === 'int' ? '标记完成' : '确认完成';
+  return '<button class="mark" data-mark="' + esc(t.id) + '" title="标记为已完成（仅记录在本机索引）">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>' +
+    label + '</button>';
+}
+
+/* 概览「进行中任务」用的紧凑行：左栏宽度不足以放下 7 列表格，
+   改为两行式卡片（标题 + 路径 / Agent + 活跃 + 开始时间），避免表头折成竖排单字。 */
+function runRow(t) {
+  return '<a class="crow" href="#/task/' + t.id + '">' +
+    '<div class="cmain"><b>' + esc(t.title) + '</b>' +
+      '<small title="' + esc(t.dir || '—') + '">' + esc(t.dir ? midPath(t.dir, 60) : '—') + '</small></div>' +
+    '<div class="cmeta">' + badge(t.a) + '<span>' + hm(t.act) + '</span>' +
+      '<span>' + dateCell(t.sd, t.s) + '</span>' + pill(t.st) + '</div>' +
+  '</a>';
+}
+
+
+/* 每一级可选的分组维度。嵌套顺序由用户点击顺序决定，例如
+   [agent, proj, session] = 先按 Agent，再按项目，最后按会话。 */
+const GROUP_DIMS = [
+  ['agent', '按 Agent', 'A'],
+  ['proj', '按项目', 'P'],
+  ['session', '按会话', 'S'],
+  ['leaf', '最明细目录', 'D'],
+  ['up1', '上一级目录', 'U1'],
+  ['up2', '上两级目录', 'U2']
+];
+const GROUP_LABEL = Object.fromEntries(GROUP_DIMS.map(([k, l]) => [k, l]));
+const MAX_LEVELS = 4;
+
+function pathParts(p) {
+  return String(p || '').replace(/[\\/]+$/, '').split(/[\\/]+/).filter(Boolean);
+}
+
+/* 会话的展示名：优先用会话内首条任务标题，让「按会话」分组可读 */
+function sessionLabel(t, mode) {
+  // 同会话多任务的标题不同，用 sessionId 短码 + 首个任务标题做标识
+  const short = String(t.sid || '').replace(/^session-/, '').slice(0, 8);
+  const first = sessionFirstTitle(t.sid);
+  return (first ? first.slice(0, 42) : '会话 ' + (short || '—'));
+}
+
+/* 每个会话的首个任务标题缓存，避免重复遍历 */
+let __sessionTitleCache = null;
+function sessionFirstTitle(sid) {
+  if (!sid) return '';
+  if (!__sessionTitleCache) {
+    __sessionTitleCache = {};
+    for (const t of TASKS) {
+      if (!t.sid) continue;
+      const cur = __sessionTitleCache[t.sid];
+      // 取会话内最早的任务标题作为会话名
+      if (!cur || (t.ts || 0) < (cur.ts || 0)) __sessionTitleCache[t.sid] = { ts: t.ts || 0, title: t.title };
+    }
+  }
+  const e = __sessionTitleCache[sid];
+  return e ? e.title : '';
+}
+
+/* 取某一级的分组键：返回 { key, label, tip } */
+function dimKeyOf(t, dim) {
+  if (dim === 'agent') return { key: 'A:' + t.a, label: t.a, tip: 'Agent：' + t.a };
+  if (dim === 'session') {
+    if (!t.sid) return { key: 'S:—', label: '（无会话标识）', tip: '该任务未记录会话 id' };
+    return { key: 'S:' + t.sid, label: sessionLabel(t, dim), tip: '会话：' + t.sid };
+  }
+  if (dim === 'proj') {
+    const parts = pathParts(t.dir);
+    const name = parts.length ? parts[parts.length - 1] : (t.proj || '—');
+    return { key: 'P:' + name, label: name, tip: '项目：' + name };
+  }
+  const parts = pathParts(t.dir);
+  if (!parts.length) return { key: 'U:—', label: '（无工作目录）', tip: '该任务未记录工作目录' };
+  const cut = dim === 'up2' ? 2 : dim === 'up1' ? 1 : 0;
+  const keep = Math.max(1, parts.length - cut);
+  const label = parts.slice(0, keep).join('\\');
+  return { key: dim + ':' + label, label, tip: label };
+}
+
+/* 组间排序：沿用当前排序维度与方向（组内最新任务） */
+function sortGroups(groups) {
+  const dir = state.sort === 'asc' ? 1 : -1;
+  const byEnd = state.sortKey !== 'start';
+  const stamp = (x) => (byEnd ? (x.te || x.ts || 0) : (x.ts || x.te || 0));
+  return groups.sort((a, b) => {
+    const ta = Math.max(...a.items.map(stamp));
+    const tb = Math.max(...b.items.map(stamp));
+    return dir * (tb - ta);
+  });
+}
+
+function groupSum(items) {
+  return {
+    n: items.length,
+    act: items.reduce((s, x) => s + x.act, 0),
+    bytes: items.reduce((s, x) => s + x.sp, 0)
+  };
+}
+
+/* 递归渲染一层分组；levels 用完后落到任务表 */
+function renderLevel(items, levels, depth, pathKey) {
+  if (!levels.length) return taskTable(items);
+  const dim = levels[0];
+  const map = new Map();
+  for (const t of items) {
+    const g = dimKeyOf(t, dim);
+    if (!map.has(g.key)) map.set(g.key, { ...g, items: [] });
+    map.get(g.key).items.push(t);
+  }
+  const groups = sortGroups([...map.values()]);
+  const openSet = state.groupOpen || (state.groupOpen = {});
+
+  return groups.map((g) => {
+    // 嵌套层级用「父路径 + 本级键」做展开状态 key，避免不同父组下同名子组互相串台
+    const fullKey = (pathKey ? pathKey + '/' : '') + g.key;
+    const open = openSet[fullKey] !== undefined ? !!openSet[fullKey] : depth === 0 && groups.indexOf(g) === 0;
+    if (openSet[fullKey] === undefined && depth === 0 && groups.indexOf(g) === 0) openSet[fullKey] = true;
+    const s = groupSum(g.items);
+    const body = open
+      ? (levels.length > 1 ? renderLevel(g.items, levels.slice(1), depth + 1, fullKey) : taskTable(g.items))
+      : '';
+    return '<div class="grp lv' + depth + (open ? ' open' : '') + '" data-gk="' + esc(fullKey) + '">' +
+      // 分组键可能含引号/反斜杠，不用内联 onclick（拼接会破坏属性），改走 data-gk + 事件委托
+      '<div class="grp-h" data-toggle="' + esc(fullKey) + '">' +
+        '<svg class="cr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4l8 8-8 8"/></svg>' +
+        '<span class="glv">' + esc(GROUP_LABEL[dim] || dim) + '</span>' +
+        '<span class="gt" title="' + esc(g.tip) + '">' + esc(g.label) + '</span>' +
+        '<span class="gm"><span>' + s.n + ' 个任务</span><span>' + hm(s.act) + '</span><span>' + fmt(s.bytes) + '</span></span>' +
+      '</div>' +
+      '<div class="grp-b">' + body + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function groupedTasks(list) {
+  const levels = state.groupLevels || [];
+  if (!levels.length) return taskTable(list);
+  __sessionTitleCache = null;   // 每次渲染重建会话名缓存（数据可能刚刷新）
+  return renderLevel(list, levels, 0, '');
+}
+
+function toggleGroup(key) {
+  if (!state.groupOpen) state.groupOpen = {};
+  state.groupOpen[key] = !state.groupOpen[key];
+  rerenderTasks();
+}
+
+/* 设置嵌套层级：点同一维度可叠加下一级，点「不分组」清空 */
+function setGroupLevels(levels) {
+  state.groupLevels = levels.slice(0, MAX_LEVELS);
+  state.groupOpen = {};   // 换层级时重置展开状态
+  rerenderTasks();
+  const names = state.groupLevels.map((k) => GROUP_LABEL[k] || k);
+  toast(names.length ? '分组层级：' + names.join(' › ') : '已取消分组');
+}
+
+/* 在现有层级上追加一级；已存在则移除（点同一维度即取消该级及之后） */
+function toggleDim(dim) {
+  const cur = (state.groupLevels || []).slice();
+  const i = cur.indexOf(dim);
+  if (i > -1) setGroupLevels(cur.slice(0, i));
+  else if (cur.length < MAX_LEVELS) setGroupLevels(cur.concat([dim]));
+  else toast('最多 ' + MAX_LEVELS + ' 级分组');
+}
+
+function clearGroups() {
+  setGroupLevels([]);
+}
+
+/* 兼容旧调用点（如测试脚本里的 setGroup('leaf')） */
+function setGroup(mode) {
+  if (mode === 'none') return setGroupLevels([]);
+  return setGroupLevels([mode]);
+}
+
+/* ---------- 列宽：表头抓手可拖动，宽度存 localStorage ---------- */
+/* 7 列顺序：状态 | 任务/目录 | Agent | 活跃 | 空间 | 开始 | 结束；
+   第 2 列（任务标题）保持弹性，其余列可拖出固定宽度。 */
+const COL_DEFAULT = [82, 0, 104, 70, 74, 112, 112];
+const COL_LIMITS = [48, 0, 60, 44, 52, 76, 76];   // 每列最小宽度
+
+function loadCols() {
+  try {
+    const raw = localStorage.getItem('ac.h5.colw');
+    const arr = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(arr) && arr.length === 7) {
+      return arr.map((v, i) => (i === 1 ? 0 : Math.max(COL_LIMITS[i], Math.min(520, Number(v) || COL_DEFAULT[i]))));
+    }
+  } catch (e) {}
+  return COL_DEFAULT.slice();
+}
+
+function gridTemplate() {
+  return state.colW.map((w, i) => (i === 1 ? 'minmax(0,1fr)' : (w || COL_DEFAULT[i]) + 'px')).join(' ');
+}
+
+/* 表头一格：末列以外的格子带一个拖动抓手 */
+function headCell(label, col, cls) {
+  return '<span class="hcell' + (cls ? ' ' + cls : '') + '">' + label +
+    (col === 1 ? '' : '<i class="rz" data-col="' + col + '" title="拖动调整列宽"></i>') + '</span>';
+}
+
+function taskTable(list) {
+  // 表头与 trow 共用同一份 grid-template（--tc），列宽由拖动决定
+  return '<div class="tbl" style="--tc:' + gridTemplate() + '">' +
+    '<div class="tbl-h">' +
+      headCell('状态', 0) + headCell('任务 / 工作目录', 1) + headCell('Agent', 2) +
+      headCell('活跃', 3, 'n') + headCell('空间', 4, 'n') +
+      headCell('开始时间', 5, 'dim') + headCell('结束时间', 6, 'dim') +
+    '</div>' +
+    list.map(taskRow).join('') + '</div>';
+}
+
+/* 拖动列宽：pointerdown 落在抓手上时接管，松手写回 localStorage。
+   表格会随筛选重渲染，所以监听挂在 document 上、按 data-col 取列号。 */
+function bindColumnResize() {
+  document.addEventListener('pointerdown', (event) => {
+    const handle = event.target && event.target.closest ? event.target.closest('.rz') : null;
+    if (!handle) return;
+    event.preventDefault();
+    const col = Number(handle.getAttribute('data-col'));
+    // 第 1 列（索引 1）是弹性列，不参与拖动；其余列都可拖
+    if (!Number.isInteger(col) || col < 0 || col === 1 || col >= state.colW.length) return;
+    const host = handle.closest('.tbl');
+    const startX = event.clientX;
+    const startW = state.colW[col] || COL_DEFAULT[col];
+    const move = (ev) => {
+      const next = Math.round(startW + (ev.clientX - startX));
+      state.colW[col] = Math.max(COL_LIMITS[col], Math.min(520, next));
+      if (host) host.style.setProperty('--tc', gridTemplate());
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      try { localStorage.setItem('ac.h5.colw', JSON.stringify(state.colW)); } catch (e) {}
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
+}
+
+/* ============ 日期维度（展示 / 排序 / 筛选） ============ */
+/* 统一显示完整年月日：2026-10-22（不再省略年份，避免跨年时误读）
+   兼容只有 MM-DD 的旧数据：补上当前年份，保证所有日期都带年 */
+function shortDate(day) {
+  if (!day) return '';
+  const s = String(day);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  if (/^\d{2}-\d{2}$/.test(s)) {
+    const y = (state.generatedAt || '').slice(0, 4) || String(new Date().getFullYear());
+    return y + '-' + s;
+  }
+  return s;
+}
+
+/* 单列日期单元：日期 + 时间；无值时的占位由 caller 指定 */
+function dateCell(day, time, emptyLabel) {
+  if (!day && !time) return emptyLabel || '—';
+  const d = day ? shortDate(day) : '';
+  const tm = time || '';
+  if (!d) return tm || (emptyLabel || '—');
+  return d + (tm ? ' ' + tm : '');
+}
+
+/* 任务列表的时间单元：年月日一行、时间一行（列窄也不会挤成一团） */
+function dateStack(day, time, emptyLabel) {
+  if (!day && !time) return '<span class="ds1">' + esc(emptyLabel || '—') + '</span>';
+  const d = day ? shortDate(day) : '';
+  if (!d) return '<span class="ds1">' + esc(time || emptyLabel || '—') + '</span>';
+  return '<span class="ds1">' + esc(d) + '</span>' +
+    (time ? '<span class="ds2">' + esc(time) + '</span>' : '');
+}
+
+/* 起止展示（详情页用）：两侧都带完整年月日 */
+function dateRange(t) {
+  if (!t.sd) return t.s + (t.e ? '–' + t.e : ' 起');
+  if (!t.e) return shortDate(t.sd) + ' ' + t.s + ' 起';
+  if (t.sd === t.ed) return shortDate(t.sd) + ' ' + t.s + '–' + t.e;
+  return shortDate(t.sd) + ' ' + t.s + ' – ' + shortDate(t.ed) + ' ' + t.e;
+}
+
+/* 日期范围筛选：按「起止区间与筛选区间有交集」判定，跨天任务不会被漏掉 */
+function inDateRange(t, from, to) {
+  if (!from && !to) return true;
+  const start = t.sd || '';
+  const end = t.ed || start;
+  if (!start) return false;
+  if (from && end < from) return false;
+  if (to && start > to) return false;
+  return true;
+}
+
+/* 任务排序：默认按截止时间（结束时间）倒序；可切换为开始时间。
+   仍在进行的任务没有结束时间，用开始时间顶上，保证它们出现在最前面。 */
+function sortTasks(list) {
+  const dir = state.sort === 'asc' ? 1 : -1;
+  const byEnd = state.sortKey !== 'start';
+  const stamp = (t) => (byEnd ? (t.te || t.ts || 0) : (t.ts || t.te || 0));
+  return list.slice().sort((a, b) => {
+    const d = stamp(a) - stamp(b);
+    if (d) return d * dir;
+    // 同一时间点再按另一个时间、标题稳定排序，避免每次刷新顺序抖动
+    const d2 = (byEnd ? (a.ts || 0) - (b.ts || 0) : (a.te || 0) - (b.te || 0));
+    if (d2) return d2 * dir;
+    return String(a.title).localeCompare(String(b.title));
+  });
+}
+
+/* 可选日期边界：从任务数据里取最早/最晚，作为 input[type=date] 的上下限 */
+function dateBounds() {
+  const days = TASKS.map((t) => t.sd).filter(Boolean).sort();
+  return { min: days[0] || '', max: days[days.length - 1] || '' };
+}
+
+function agentBars() {
+  const rows = byAgent();
+  const max = Math.max(...rows.map((r) => r.act), 1);
+  return rows.map((r) =>
+    '<div class="bwrap"><div class="brow"><span>' + badge(r.name) + '</span>' +
+    '<span class="v">' + r.n + ' 任务 · ' + hm(r.act) + '</span></div>' +
+    '<div class="bar"><i style="width:' + Math.max(4, (r.act / max) * 100).toFixed(0) + '%;background:var(--' + tone(r.name) + ')"></i></div></div>'
+  ).join('');
+}
+
+/* ============ 视图 ============ */
+const RANGES = [['today', '今日'], ['w7', '近 7 天'], ['d14', '近 14 天']];
+
+function rangeBar() {
+  return '<div class="filters">' + RANGES.map(([k, l]) =>
+    '<button class="' + (state.range === k ? 'on' : '') + '" onclick="setRange(\'' + k + '\')">' + l + '</button>').join('') + '</div>';
+}
+
+/* 近 N 天聚合；今日返回 null，直接读 TASKS */
+function rangeAgg(r) {
+  const days = r === 'w7' ? 7 : r === 'd14' ? 14 : 0;
+  if (!days) return null;
+  const seg = TREND.slice(-days);
+  const n = seg.reduce((a, b) => a + b.n, 0);
+  const act = seg.reduce((a, b) => a + b.act, 0);
+  return { days, n, act, wall: Math.round(act * 1.31), avg: Math.round(act / Math.max(n, 1)),
+    from: seg[0].d, to: seg[seg.length - 1].d };
+}
+
+/* 柱图 + 首尾日期标签；峰值由下方注释说明，不在图内居中标注——
+   居中的「峰值」会落在非峰值柱下方，容易被误读成该柱的属性。 */
+function trendBars() {
+  // 数据尚未加载（TREND 为空）时返回占位，避免访问 TREND[0] 抛异常
+  if (!TREND.length) return '<div class="trend" style="grid-template-columns:1fr"><i style="height:4px"></i></div>' +
+    '<div class="trend-l"><span>暂无数据</span><span></span></div>';
+  const max = Math.max(...TREND.map((x) => x.n), 1);
+  const last = TREND.length - 1;
+  // 列数跟随实际数据条数，避免 TREND 非 14 条时网格对不上
+  const cols = 'grid-template-columns:repeat(' + Math.max(1, TREND.length) + ',minmax(0,1fr))';
+  // 柱子的悬停提示用完整年月日；图内首尾标签位置窄，只显示「年-月-日」的短式（含年）
+  const bars = '<div class="trend" style="' + cols + '">' + TREND.map((x, i) =>
+    '<i class="' + (i === last ? 'tod' : x.n / max > 0.8 ? 'hi' : '') + '" style="height:' +
+    Math.max(4, (x.n / max) * 100).toFixed(0) + '%" title="' + shortDate(x.d) + ' · ' + x.n + ' 个"></i>').join('') + '</div>';
+  const labels = '<div class="trend-l">' +
+    '<span>' + shortDate(TREND[0].d) + '</span>' +
+    '<span>' + shortDate(TREND[TREND.length - 1].d) + '</span></div>';
+  return bars + labels;
+}
+
+/* 趋势说明按数据算出，不写死结论（演示数据与真实数据都适用） */
+function trendNote() {
+  if (!state.live) return '当前为演示数据，接入本地服务后按真实扫描结果更新。';
+  const act = TREND.reduce((a, b) => a + b.n, 0);
+  const zero = TREND.filter((x) => x.n === 0).length;
+  if (!act) return '近 14 天无任务记录。';
+  if (zero >= 7) return '近 14 天有 ' + zero + ' 天无任务记录，说明这台机器并非每天使用。';
+  const peak = TREND.reduce((a, b) => (b.n > a.n ? b : a), TREND[0]);
+  return '近 14 天共 ' + act + ' 个任务，峰值 ' + peak.n + ' 个（' + shortDate(peak.d) + '），无任务的 ' + zero + ' 天。';
+}
+
+function viewHome() {
+  const s = summary();
+  const ra = rangeAgg(state.range);
+  const intr = TASKS.filter((t) => t.st === 'int');
+  const running = sortTasks(TASKS.filter((t) => t.st === 'run'));
+  const recycle = FILES.reduce((a, f) => a + f.sz, 0);
+  const inst = AGENTS.filter((a) => a.inst);
+  const sess = inst.reduce((a, b) => a + b.sess, 0);
+  const today = state.generatedAt ? state.generatedAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const newBytes = state.newBytes || 0;
+
+  return '' +
+  '<div class="toolbar">' + rangeBar() + '<div class="sp"></div>' +
+    '<button class="btn" onclick="exportReport()">导出日报</button></div>' +
+  '<section class="hero">' +
+    '<div class="hd"><span>' + (ra ? shortDate(ra.from) + ' — ' + shortDate(ra.to) : today) + '</span>' +
+      '<span>' + (state.online ? '本地服务' : '演示数据') + '</span></div>' +
+    '<div class="one">' + (ra
+      ? '近 ' + ra.days + ' 天完成 ' + ra.n + ' 个任务 · 日均 ' + Math.round(ra.n / ra.days) + ' 个'
+      : '今日 ' + s.n + ' 个任务 · 完成 ' + s.done + ' · 进行中 ' + s.run + ' · 中断 ' + s.intr) + '</div>' +
+    '<div class="sub">' + (ra
+      ? '覆盖 ' + inst.length + ' 个 Agent · 单任务平均活跃 ' + ra.avg + ' 分钟'
+      : '覆盖 ' + inst.length + ' 个 Agent · 共 ' + sess + ' 个会话 · 上次扫描 ' + state.lastScan) + '</div>' +
+    '<div class="row">' +
+      '<div><b>' + (ra ? hm(ra.act) : hm(s.act)) + '</b><span>活跃时长</span></div>' +
+      '<div><b>' + (ra ? hm(ra.wall) : hm(s.wall)) + '</b><span>墙钟时长</span></div>' +
+      '<div><b>' + (ra ? Math.round(ra.n / ra.days) : fmt(newBytes)) + '</b><span>' + (ra ? '日均任务' : '索引占用') + '</span></div>' +
+    '</div>' +
+  '</section>' +
+
+  '<div class="kpis">' +
+    kpiCard('任务总数', ra ? ra.n : s.n, ra ? '近 ' + ra.days + ' 天完成' : '覆盖 ' + inst.length + ' 个 Agent', 'acc', '#/tasks') +
+    kpiCard('进行中任务', s.run, s.run ? '正在运行 · 查看清单' : '当前无运行任务', s.run ? 'warn' : '', '#/tasks?st=run') +
+    kpiCard('中断任务', s.intr, s.intr ? '需复盘 · 查看清单' : '无中断', s.intr ? 'bad' : '', '#/tasks?st=int') +
+    kpiCard('总占用', fmt(s.totalSize), inst.length + ' 个 Agent 根目录') +
+  '</div>' +
+
+  '<div class="cols2">' +
+
+    '<div class="stack">' +
+      (intr.length ? '<section class="sec"><div class="callout red"><div><b>' + intr[0].title + '</b><br>' +
+        esc(intr[0].reason) + '，遗留 ' + intr[0].todo + ' 项待办。<a href="#/task/' + intr[0].id + '" style="text-decoration:underline">查看中断点</a></div></div></section>' : '') +
+
+      '<section class="sec"><div class="sec-h"><h2>近 14 天趋势</h2><span>每日完成任务数</span></div><div class="card">' +
+        trendBars() +
+        '<div class="note">柱高按当日任务数归一；末柱为今日，随扫描更新。' + trendNote() + '</div>' +
+      '</div></section>' +
+
+      '<section class="sec" style="margin-bottom:0"><div class="sec-h"><h2>进行中任务</h2>' +
+        '<a href="#/tasks?st=run" style="color:var(--blue)">全部 ' + running.length + ' 个 ›</a></div>' +
+        (running.length
+          ? '<div class="tbl compact">' + running.slice(0, 4).map(runRow).join('') + '</div>'
+          : '<div class="card"><div class="empty" style="padding:26px"><b>当前没有进行中的任务</b>Agent 会话结束后会自动转为已完成</div></div>') +
+      '</section>' +
+    '</div>' +
+
+    '<div class="stack">' +
+      '<section class="sec"><div class="sec-h"><h2>Agent 分布</h2><span>按活跃时长</span></div>' +
+        '<div class="card">' + agentBars() + '</div></section>' +
+
+      '<section class="sec" style="margin-bottom:0"><div class="card">' +
+        '<div class="row"><div class="b"><div class="t">可回收中间文件</div><div class="d">工具快照、缓存、原始输出</div></div>' +
+          '<div class="r"><b>' + fmt(recycle) + '</b><div style="font-size:10.5px;color:var(--tx3)">' + FILES.length + ' 处 · 仅提示</div></div></div>' +
+        '<div class="note">AgentCenter 不会自动删除任何文件；回收需在桌面端逐项确认。</div>' +
+      '</div></section>' +
+    '</div>' +
+
+  '</div>';
+}
+
+/* ============ 会话内容深搜（服务端按需索引） ============ */
+let deepToken = 0;
+async function runDeepSearch() {
+  const q = state.q.trim();
+  if (q.length < 2) { toast('关键词至少 2 个字符'); return; }
+  if (!location.protocol.startsWith('http')) { toast('会话内容搜索需要本地服务'); return; }
+  const token = ++deepToken;
+  state.deep = { loading: true, error: '', ms: 0, count: 0, items: [] };
+  $('#view').innerHTML = viewTasks();
+  bindInline();
+  try {
+    const qs = new URLSearchParams({ q, scope: state.qScope, limit: '40' });
+    if (state.filter !== 'all') qs.set('status', state.filter);
+    if (state.aFilter !== 'all') qs.set('agent', state.aFilter);
+    if (state.dateFrom) qs.set('from', state.dateFrom);
+    if (state.dateTo) qs.set('to', state.dateTo);
+    const r = await fetch('api/search?' + qs.toString(), { cache: 'no-store' });
+    const j = await r.json();
+    if (token !== deepToken) return;   // 已被更新的搜索取代
+    if (!r.ok || !j.ok) {
+      state.deep = { loading: false, error: j.reason || ('HTTP ' + r.status), ms: 0, count: 0, items: [] };
+    } else {
+      state.deep = { loading: false, error: '', ms: j.ms, count: j.count, items: j.items || [], truncated: j.truncated === true };
+    }
+  } catch (e) {
+    if (token !== deepToken) return;
+    state.deep = { loading: false, error: e.message, ms: 0, count: 0, items: [] };
+  }
+  $('#view').innerHTML = viewTasks();
+  bindInline();
+}
+
+/* 深搜结果列表：命中片段可点进任务详情 */
+function deepResults() {
+  const d = state.deep;
+  if (d === null) return '';
+  if (d.loading) return '<div class="empty" style="padding:24px"><b>正在搜索会话内容…</b>' +
+    '<div class="note" style="margin-top:6px;color:inherit;opacity:.8">首次搜索要为每个会话抽一次正文建索引（本机约 500 个会话，可能 1–2 分钟）；' +
+    '建好之后同样的搜索是毫秒级。期间可以切到别的页面，回来还在。</div></div>';
+  if (d.error) return '<div class="callout amber"><div><b>搜索失败</b><br>' + esc(d.error) + '</div></div>';
+  if (d.count === 0) return '<div class="empty" style="padding:24px"><b>没有命中</b>换个关键词，或把范围改成「标题 / 项目 / Agent」</div>';
+  return d.items.map((it) => '<div class="dsr">' +
+      '<a class="dsr-h" href="#/task/' + esc(it.taskId) + '">' +
+        '<b>' + esc(it.title || '(无标题)') + '</b>' +
+        '<span class="chip">' + esc(it.agent) + '</span>' +
+        (it.project ? '<span class="chip">' + esc(it.project) + '</span>' : '') +
+        '<span class="chip amber">命中 ' + it.total + ' 处</span>' +
+      '</a>' +
+      (it.hits || []).map((h) => '<div class="dsr-hit"><span class="dsr-role ' + h.role + '">' + esc(h.roleLabel) + '</span>' +
+        '<span class="dsr-time">' + esc(h.time) + '</span>' +
+        '<span class="dsr-text">' + esc(h.snippet) + '</span></div>').join('') +
+    '</div>').join('') +
+    '<div class="note">共 ' + d.count + ' 个任务命中 · 用时 ' + (d.ms / 1000).toFixed(1) + ' 秒' + (d.truncated ? ' · 命中较多，只显示前 ' + d.count + ' 个，可加关键词缩小范围' : '') + '</div>';
+}
+
+function viewTasks() {
+  const f = state.filter;
+  const af = state.aFilter;
+  const q = state.q.trim().toLowerCase();
+  let list = TASKS.filter((t) => (f === 'all' || t.st === f) && (af === 'all' || t.a === af));
+  if (q) list = list.filter((t) => (t.title + t.proj + t.a).toLowerCase().includes(q));
+  list = list.filter((t) => inDateRange(t, state.dateFrom, state.dateTo));
+  list = sortTasks(list);
+
+  // 状态 / 排序 / Agent / 分组：一律下拉，不再平铺按钮
+  const STATUS_TABS = [
+    ['all', '全部状态', TASKS.length],
+    ['run', '进行中', TASKS.filter((t) => t.st === 'run').length],
+    ['int', '已中断', TASKS.filter((t) => t.st === 'int').length],
+    ['wait', '等待确认', TASKS.filter((t) => t.st === 'wait').length],
+    ['done', '已完成', TASKS.filter((t) => t.st === 'done').length]
+  ];
+  const agentNames = ['all'].concat([...new Set(TASKS.map((t) => t.a))]);
+  const b = dateBounds();
+  const hasDate = !!(state.dateFrom || state.dateTo);
+  const opt = (value, label, selected) =>
+    '<option value="' + esc(value) + '"' + (selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+
+  const statusSel = '<select class="sel" onchange="setFilter(this.value)" aria-label="按状态筛选" title="按状态筛选">' +
+    STATUS_TABS.map(([k, label, n]) => opt(k, label + '（' + n + '）', f === k)).join('') + '</select>';
+
+  const sortSel = '<select class="sel" onchange="setSortChoice(this.value)" aria-label="排序方式" title="排序方式">' +
+    opt('end-desc', '截止时间 · 倒序', state.sortKey === 'end' && state.sort === 'desc') +
+    opt('end-asc', '截止时间 · 正序', state.sortKey === 'end' && state.sort === 'asc') +
+    opt('start-desc', '开始时间 · 倒序', state.sortKey === 'start' && state.sort === 'desc') +
+    opt('start-asc', '开始时间 · 正序', state.sortKey === 'start' && state.sort === 'asc') +
+    '</select>';
+
+  const agentSel = '<select class="sel" onchange="setAgentFilter(this.value)" aria-label="按 Agent 筛选" title="按 Agent 筛选">' +
+    agentNames.map((a) => opt(a, a === 'all' ? '全部 Agent' : a, af === a)).join('') + '</select>';
+
+  // 日期工具条：起止日期筛选
+  const dmin = b.min ? ' min="' + b.min + '"' : '';
+  const dmax = b.max ? ' max="' + b.max + '"' : '';
+  const dateInput = (id, val, label, handler) =>
+    '<span class="dwrap' + (val ? ' has-val' : '') + '">' +
+      '<input type="date" id="' + id + '" value="' + esc(val) + '"' + dmin + dmax +
+        ' onchange="' + handler + '(this.value)"' +
+        ' title="' + label + '" aria-label="' + label + '">' +
+      '<span class="ph">' + label + '</span>' +
+    '</span>';
+  const dateBar = '<div class="toolbar" style="margin-bottom:12px">' +
+      '<div class="dbar">' +
+        '<span class="dlab">日期</span>' +
+        '<div class="dq">' +
+          dateInput('dFrom', state.dateFrom, '起始日期', 'setDateFrom') +
+          '<span class="dsep">→</span>' +
+          dateInput('dTo', state.dateTo, '结束日期', 'setDateTo') +
+        '</div>' +
+        '<span class="dnote">' + (hasDate
+          ? '已筛选 ' + (state.dateFrom || '最早') + ' ~ ' + (state.dateTo || '最新')
+          : '不限（' + (b.min ? b.min + ' ~ ' + b.max : '—') + '）') + '</span>' +
+        (hasDate ? '<button class="btn" onclick="clearDate()">清除</button>' : '') +
+      '</div>' +
+    '</div>';
+
+  // 分组：下拉添加一级（可连续添加成嵌套），已有层级用链条展示
+  const lv = state.groupLevels || [];
+  const groupSel = '<select class="sel" onchange="addGroupDim(this.value)" aria-label="添加分组层级" title="添加一级分组">' +
+    '<option value="">＋ 添加一级分组…</option>' +
+    GROUP_DIMS.map(([k, l]) => opt(k, l + (lv.indexOf(k) > -1 ? '（已用）' : ''), false)).join('') +
+    '</select>';
+  const chain = lv.length
+    ? '<span class="gchain">' + lv.map((k) => GROUP_LABEL[k]).join(' <em>›</em> ') + '</span>' +
+      '<button class="btn" onclick="clearGroups()">清除分组</button>'
+    : '<span class="gnone">未分组</span>';
+  const groupBar = '<div class="toolbar" style="margin-bottom:12px">' +
+      '<div class="grp-tools">' +
+        '<span class="glab">分组</span>' + groupSel + chain +
+      '</div>' +
+    '</div>';
+
+  return '<div class="toolbar">' +
+      '<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>' +
+      '<input id="q" placeholder="搜索任务标题 / 项目 / Agent" value="' + esc(state.q) + '"></div>' +
+      statusSel + sortSel + agentSel +
+      // 搜索范围：标题（纯前端）/ 会话正文 / 含思考（后两者走服务端深搜）
+      '<select class="sel" id="qScope" onchange="setQScope(this.value)" title="搜索范围" aria-label="搜索范围">' +
+        '<option value="title"' + (state.qScope === 'title' ? ' selected' : '') + '>搜索：标题 / 项目</option>' +
+        '<option value="content"' + (state.qScope === 'content' ? ' selected' : '') + '>搜索：会话内容</option>' +
+        '<option value="think"' + (state.qScope === 'think' ? ' selected' : '') + '>搜索：含模型思考</option>' +
+      '</select>' +
+      '<button class="btn" id="clearFilters" onclick="clearTaskFilters()"' + (f !== 'all' || af !== 'all' || q !== '' || hasDate ? '' : ' disabled') + 
+        ' title="清空状态 / Agent / 搜索 / 日期过滤">清空过滤条件</button>' +
+      '<div class="sp"></div><span class="muted">' + list.length + ' / ' + TASKS.length + '</span>' +
+    '</div>' +
+    dateBar +
+    groupBar +
+    (state.qScope !== 'title' && state.q.trim() !== ''
+      ? deepResults()
+      : (list.length ? groupedTasks(list)
+        : '<div class="empty"><b>没有匹配的任务</b>' + (hasDate ? '当前日期范围内没有任务，清除日期筛选后重试' : '换个筛选条件或清空搜索词') + '</div>'));
+}
+
+function viewTodos() {
+  const af = state.aFilter;
+  const items = TODOS.map((t, i) => ({ ...t, done: state.todos[i], i }));
+  const scoped = items.filter((x) => af === 'all' || x.a === af);
+  const pending = scoped.filter((x) => !x.done);
+  const finished = scoped.filter((x) => x.done);
+  const pendAll = items.filter((x) => !x.done).length;
+  const wait = TASKS.filter((t) => t.st === 'wait').length;
+  const intr = TASKS.filter((t) => t.st === 'int').length;
+  const agents = ['all'].concat([...new Set(TODOS.map((t) => t.a))]);
+
+  const row = (t) =>
+    '<div class="todo ' + (t.done ? 'done' : '') + '" data-todo-id="' + esc(t.id || ('idx' + t.i)) + '">' +
+      '<div class="cbx ' + (t.done ? 'on' : '') + '" data-todo="' + esc(t.id || ('idx' + t.i)) + '" data-idx="' + t.i + '" onclick="toggleTodo(' + t.i + ')">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>' +
+      '</div>' +
+      '<div class="b"><div class="t">' + esc(t.t) + '</div>' +
+      '<div class="m">' + badge(t.a) + '<span>' + esc(t.p) + '</span><span style="color:var(--tx3)">助手消息清单</span></div></div>' +
+    '</div>';
+
+  return '<div class="toolbar">' +
+      '<span class="muted">跨 Agent 汇总 · 勾销只写本地索引，不改原始会话</span>' +
+      '<div class="sp"></div>' +
+      '<button class="btn" onclick="exportTodos()">导出清单</button></div>' +
+
+    '<div class="kpis k4" style="margin-top:0">' +
+      kpiCard('未完成', pendAll, pendAll ? '跨 ' + new Set(items.filter((x) => !x.done).map((x) => x.a)).size + ' 个 Agent' : '全部收尾', 'warn') +
+      kpiCard('已完成', items.length - pendAll, '本次会话内勾销') +
+      kpiCard('待确认', wait, '等待用户输入', wait ? 'acc' : '') +
+      kpiCard('中断遗留', intr, '需人工续跑', intr ? 'bad' : '') +
+    '</div>' +
+
+    '<div class="filters" style="margin:0 0 14px">' + agents.map((a) =>
+      '<button class="' + (af === a ? 'on' : '') + '" onclick="setAgentFilter(\'' + esc(a) + '\')">' +
+      (a === 'all' ? '全部 Agent' : a) + '</button>').join('') + '</div>' +
+
+    '<section class="sec">' +
+      (pending.length
+        ? '<div class="sec-h"><h2>未完成</h2><span>' + pending.length + ' 项</span></div><div class="card">' + pending.map(row).join('') + '</div>'
+        : '<div class="card"><div class="empty"><b>没有未完成的待办</b>今天的活都收尾了</div></div>') +
+    '</section>' +
+
+    (finished.length ? '<section class="sec"><div class="sec-h"><h2>已完成</h2><span>' + finished.length + ' 项</span></div><div class="card">' + finished.map(row).join('') + '</div></section>' : '') +
+
+    '<section class="sec"><div class="note">待办从助手消息的勾选清单与「下一步 / 待补充」等结构抽取；勾销只写回索引并标记「人工完成」，不修改原始会话记录。</div></section>';
+}
+
+/* ============ 日报 ============ */
+/* 数据来自 /api/reports（data/日报/*.md）：支持关键字搜索 + 日期区间过滤。
+   未连接服务时显示演示日报并标注。 */
+const REPORTS = [];
+let REPORTS_LIVE = false;
+let REPORTS_DATES = [];
+const reportState = { q: '', from: '', to: '', openDate: '', content: '', ai: null, aiLoading: false, aiError: '' };
+
+function applyReports(j) {
+  const list = (j && j.reports) || [];
+  REPORTS.length = 0;
+  REPORTS.push(...list.map((r) => ({
+    date: r.date, source: r.source, bytes: r.bytes, excerpt: r.excerpt || ''
+  })));
+  REPORTS_DATES = (j && j.dates) || [];
+  REPORTS_LIVE = list.length > 0 || REPORTS_DATES.length > 0;
+  state.reportTotal = (j && j.count) || list.length;
+}
+
+async function loadReports() {
+  if (!location.protocol.startsWith('http')) { REPORTS_LIVE = false; return false; }
+  try {
+    const qs = new URLSearchParams();
+    if (reportState.q) qs.set('q', reportState.q);
+    if (reportState.from) qs.set('from', reportState.from);
+    if (reportState.to) qs.set('to', reportState.to);
+    qs.set('limit', '50');
+    const r = await fetch('api/reports?' + qs.toString(), { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    if (!j || !j.ok) return false;
+    applyReports(j);
+    // 同步副标题与徽章
+    const sb = $('#pgSub');
+    if (sb && location.hash.indexOf('reports') > -1) sb.textContent = REPORTS.length + ' 份日报 · 来自 data/日报';
+    updateBadge();
+    persistView();   // 日报页的搜索/日期筛选也记下来
+    return true;
+  } catch (e) { return false; }
+}
+
+async function openReport(date) {
+  if (!location.protocol.startsWith('http')) { toast('需要本地服务才能读取日报原文'); return; }
+  try {
+    const r = await fetch('api/reports?mode=content&date=' + encodeURIComponent(date), { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('读取失败：' + (j.reason || r.status)); return; }
+    reportState.openDate = date;
+    reportState.content = j.markdown || '';
+    $('#view').innerHTML = viewReports();
+  } catch (e) { toast('读取失败：' + e.message); }
+}
+
+function closeReport() {
+  reportState.openDate = '';
+  reportState.content = '';
+  $('#view').innerHTML = viewReports();
+}
+
+async function generateReport(date) {
+  if (!location.protocol.startsWith('http')) { toast('需要本地服务'); return; }
+  try {
+    const d = date || (state.generatedAt ? state.generatedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    const r = await fetch('api/reports?mode=generate&date=' + encodeURIComponent(d), { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('生成失败：' + (j.reason || r.status)); return; }
+    toast('已生成 ' + j.date + ' 日报');
+    await loadReports();
+    openReport(j.date);
+  } catch (e) { toast('生成失败：' + e.message); }
+}
+
+/* AI 总结：模型与 key 都在 DSH 里，页面只能请宿主代调（postMessage 桥）。 */
+async function generateAiReport(date) {
+  if (!AC_EMBEDDED) {
+    toast('AI 总结要在 DSH 的 AgentCenter 面板里用：模型与 key 由 DSH 提供');
+    return;
+  }
+  const d = date || (state.generatedAt ? state.generatedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  reportState.aiLoading = true;
+  reportState.aiError = '';
+  $('#view').innerHTML = viewReports();
+  const r = await hostRequest('ai-report', { date: d }, 120000);
+  reportState.aiLoading = false;
+  if (!r || !r.ok || !r.data || !r.data.markdown) {
+    reportState.aiError = (r && (r.error || (r.data && r.data.error))) || '未知错误';
+    $('#view').innerHTML = viewReports();
+    toast('AI 总结失败：' + reportState.aiError);
+    return;
+  }
+  reportState.ai = { date: r.data.date || d, markdown: r.data.markdown, model: r.data.model || '' };
+  $('#view').innerHTML = viewReports();
+  toast('AI 日报已生成' + (r.data.model ? '（' + r.data.model + '）' : ''));
+}
+
+/* 保存 AI 日报：写进 data/日报/<date>.md 顶部的「日报总结（AI）」章节（写前确认） */
+async function saveAiReport() {
+  const ai = reportState.ai;
+  if (!ai) return;
+  if (!AC_EMBEDDED) { toast('保存要在 DSH 的 AgentCenter 面板里用'); return; }
+  if (!window.confirm('把这份 AI 总结写入 data/日报/' + ai.date + '.md 顶部的「日报总结（AI）」章节吗？\n下方的确定性日报原样保留，重复保存只替换 AI 这一段。')) return;
+  const r = await hostRequest('save-report', { date: ai.date, markdown: ai.markdown, model: ai.model }, 30000);
+  if (!r || !r.ok) {
+    toast('保存失败：' + ((r && (r.error || (r.data && r.data.error))) || '未知错误'));
+    return;
+  }
+  reportState.ai = null;
+  toast('已保存到 data/日报/' + r.data.date + '.md');
+  await loadReports();
+  openReport(r.data.date);
+}
+
+function setReportQ(v) { reportState.q = v || ''; loadReports().then(() => { $('#view').innerHTML = viewReports(); bindReportSearch(); }); }
+function setReportFrom(v) {
+  reportState.from = v || '';
+  if (reportState.from && reportState.to && reportState.from > reportState.to) reportState.to = reportState.from;
+  loadReports().then(() => { $('#view').innerHTML = viewReports(); bindReportSearch(); });
+}
+function setReportTo(v) {
+  reportState.to = v || '';
+  if (reportState.from && reportState.to && reportState.from > reportState.to) reportState.from = reportState.to;
+  loadReports().then(() => { $('#view').innerHTML = viewReports(); bindReportSearch(); });
+}
+function clearReportFilter() {
+  reportState.q = ''; reportState.from = ''; reportState.to = '';
+  loadReports().then(() => { $('#view').innerHTML = viewReports(); bindReportSearch(); toast('已清除筛选'); });
+}
+
+function bindReportSearch() {
+  const q = $('#rq');
+  if (!q) return;
+  // 与任务搜索一致：回车 / 失焦触发，避免输入法组字被打断
+  const run = (val) => {
+    reportState.q = val;
+    loadReports().then(() => {
+      $('#view').innerHTML = viewReports();
+      bindReportSearch();
+    });
+  };
+  q.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); run(e.target.value); }
+    else if (e.key === 'Escape') { e.preventDefault(); if (e.target) e.target.value = ''; run(''); }
+  };
+  q.onblur = (e) => { if (e.target.value !== reportState.q) run(e.target.value); };
+}
+
+/* AI 总结失败时的提示条（详情页内联） */
+function aiNotice() {
+  if (!reportState.aiError) return '';
+  return '<div class="callout amber" style="margin-bottom:12px"><div><b>AI 总结失败</b><br>' + esc(reportState.aiError) +
+    '<div class="note" style="color:inherit;opacity:.8">到 设置 → AgentCenter → 日报模型 里选一个模型（用 DSH 已配置的 provider/key）。</div></div></div>';
+}
+
+function viewReports() {
+  // AI 总结视图：优先展示（模型按配置的格式生成，未落盘）
+  if (reportState.ai) {
+    const ai = reportState.ai;
+    return '<a class="back" data-closeai="1" style="cursor:pointer">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>' + (reportState.openDate ? '返回日报原文' : '返回日报列表') + '</a>' +
+        '<div class="dhead"><h2>AI 日报 · ' + esc(ai.date) + '</h2>' +
+        '<div class="dm"><span class="chip green">AI 生成</span>' +
+          '<span class="chip">' + esc(ai.model || '—') + '</span>' +
+          '<span class="chip">' + ai.markdown.length + ' 字符</span>' +
+          '<button class="btn pri" style="margin-left:auto" onclick="saveAiReport()">保存为今日日报</button></div></div>' +
+      '<section class="sec"><div class="card"><div class="md-view">' + renderMarkdown(ai.markdown) + '</div></div></section>' +
+      '<div class="note" style="padding:0 2px">这份内容由模型按「设置 → AgentCenter → 日报格式」生成；' +
+        '点「保存为今日日报」会把这份总结写进 <span class="mono">data/日报/' + esc(ai.date) + '.md</span> 顶部的「日报总结（AI）」章节，' +
+        '下方的确定性日报原样保留。</div>';
+  }
+
+  // 打开某份日报：原文预览
+  if (reportState.openDate) {
+    return '<a class="back" data-closereport="1" style="cursor:pointer">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>返回日报列表</a>' +
+      '<div class="dhead"><h2>日报 · ' + esc(reportState.openDate) + '</h2>' +
+        '<div class="dm"><span class="chip green">' + (REPORTS_LIVE ? '已落盘' : '未连接服务') + '</span>' +
+          '<span class="chip">' + reportState.content.length + ' 字符</span>' +
+          '<button class="btn pri" style="margin-left:auto" onclick="generateAiReport(\'' + esc(reportState.openDate) + '\')"' +
+            (reportState.aiLoading ? ' disabled' : '') + '>' +
+            (reportState.aiLoading ? '正在总结…' : 'AI 总结这一天') + '</button>' +
+        '</div></div>' +
+      aiNotice() +
+      '<section class="sec"><div class="card"><div class="md-view">' + renderMarkdown(reportState.content) + '</div></div></section>';
+  }
+
+  const hasFilter = !!(reportState.q || reportState.from || reportState.to);
+  const dates = REPORTS_DATES.length ? REPORTS_DATES : REPORTS.map((r) => r.date);
+  const dmin = dates.length ? dates[dates.length - 1] : '';
+  const dmax = dates.length ? dates[0] : '';
+
+  const toolbar = '<div class="toolbar">' +
+      '<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>' +
+      '<input id="rq" placeholder="搜索日报内容 / 日期 / Agent" value="' + esc(reportState.q) + '"></div>' +
+      '<div class="sp"></div>' +
+      '<button class="btn" onclick="generateReport()">生成今日日报</button>' +
+    '</div>' +
+    '<div class="toolbar" style="margin-bottom:12px">' +
+      '<div class="dbar"><span class="dlab">日期</span><div class="dq">' +
+        '<span class="dwrap' + (reportState.from ? ' has-val' : '') + '">' +
+          '<input type="date" id="rFrom" value="' + esc(reportState.from) + '"' +
+            (dmin ? ' min="' + dmin + '"' : '') + (dmax ? ' max="' + dmax + '"' : '') +
+            ' onchange="setReportFrom(this.value)" aria-label="起始日期"><span class="ph">起始日期</span></span>' +
+        '<span class="dsep">→</span>' +
+        '<span class="dwrap' + (reportState.to ? ' has-val' : '') + '">' +
+          '<input type="date" id="rTo" value="' + esc(reportState.to) + '"' +
+            (dmin ? ' min="' + dmin + '"' : '') + (dmax ? ' max="' + dmax + '"' : '') +
+            ' onchange="setReportTo(this.value)" aria-label="结束日期"><span class="ph">结束日期</span></span>' +
+      '</div>' +
+      (hasFilter ? '<button class="btn" onclick="clearReportFilter()">清除筛选</button>' : '') +
+      '<span class="dnote">' + (hasFilter
+        ? '筛选 ' + (reportState.from || '最早') + ' ~ ' + (reportState.to || '最新') + (reportState.q ? ' · 关键字「' + esc(reportState.q) + '」' : '')
+        : (dates.length ? '共 ' + dates.length + ' 份（' + dmin + ' ~ ' + dmax + '）' : '暂无日报')) + '</span>' +
+      '</div>' +
+    '</div>';
+
+  const list = REPORTS.length
+    ? REPORTS.map((r) => '<div class="rrow" data-report="' + esc(r.date) + '">' +
+        '<div class="rmain"><b>' + esc(r.date) + '</b>' +
+          '<small>' + esc(r.excerpt).slice(0, 200) + '</small></div>' +
+        '<div class="rmeta"><span class="chip ' + (r.source === 'generated' ? 'amber' : 'green') + '">' +
+          (r.source === 'generated' ? '即时生成' : '已落盘') + '</span>' +
+          '<span>' + fmt(r.bytes) + '</span></div>' +
+      '</div>').join('')
+    : '<div class="empty" style="padding:30px"><b>' + (hasFilter ? '没有匹配的日报' : '还没有日报') + '</b>' +
+      (hasFilter ? '换个关键字或调整日期区间' : '点右上角「生成今日日报」，或用 CLI：node cli/agentcenter.mjs report') + '</div>';
+
+  return toolbar +
+    '<section class="sec"><div class="sec-h"><h2>日报列表</h2><span>' + REPORTS.length + ' 份' +
+      (REPORTS_LIVE ? '' : (state.online ? ' · 索引未生成' : ' · 未连接服务')) + '</span></div>' +
+      '<div class="tbl compact rlist">' + list + '</div></section>' +
+    '<div class="note" style="padding:0 2px">日报落盘在 <span class="mono">data/日报/YYYY-MM-DD.md</span>；' +
+      '同一天多次生成会幂等覆盖。内容由本地索引只读生成，不上传任何会话原文。</div>';
+}
+
+/* 极简 Markdown 渲染：标题 / 列表 / 表格 / 引用 / 代码块 / 分隔线 / 段落。
+   日报原文与对话正文共用；对话正文里的 message 也走这里，因此不引入外部依赖。 */
+function renderMarkdown(md) {
+  const lines = String(md || '').replace(/\r/g, '').split(/\n/);
+  const out = [];
+  let inTable = false;
+  let listTag = null;          // 'ul' | 'ol' | null
+  let inCode = false;
+  let codeBuf = [];
+  // 粗体与行内代码：用字符串拼接构造正则，避免与模板字符串的反引号冲突
+  const BT = String.fromCharCode(96);
+  const RE_BOLD = new RegExp('\\*\\*([^*]+)\\*\\*', 'g');
+  const RE_CODE = new RegExp(BT + '([^' + BT + ']+)' + BT, 'g');
+  const RE_LINK = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+  // 只放行 http(s) / mailto，其余一律变成空链接，避免 javascript: 之类
+  const safeUrl = (u) => (/^(https?:\/\/|mailto:)/i.test(String(u)) ? String(u) : '#');
+  const inline = (t) => esc(t)
+    .replace(RE_BOLD, '<b>$1</b>')
+    .replace(RE_CODE, '<code>$1</code>')
+    .replace(RE_LINK, (m, label, href) =>
+      '<a href="' + safeUrl(href) + '" target="_blank" rel="noreferrer">' + label + '</a>');
+  const closeBlocks = () => {
+    if (inTable) { out.push('</tbody></table>'); inTable = false; }
+    if (listTag) { out.push('</' + listTag + '>'); listTag = null; }
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const t = raw.trim();
+
+    // 代码块：围栏开始/结束之间原样保留（只做 HTML 转义）
+    if (/^```/.test(t)) {
+      if (!inCode) {
+        closeBlocks();
+        inCode = true;
+        codeBuf = [];
+        continue;
+      }
+      inCode = false;
+      out.push('<pre class="md-code"><code>' + esc(codeBuf.join('\n')) + '</code></pre>');
+      codeBuf = [];
+      continue;
+    }
+    if (inCode) { codeBuf.push(raw); continue; }
+
+    if (!t) { closeBlocks(); continue; }
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) { closeBlocks(); out.push('<hr>'); continue; }
+    if (/^\|/.test(t)) {
+      const cells = t.replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      if (/^[-: ]+$/.test(cells.join(''))) continue;   // 分隔行
+      if (!inTable) { closeBlocks(); out.push('<table class="md-t"><thead><tr>' + cells.map((c) => '<th>' + inline(c) + '</th>').join('') + '</tr></thead><tbody>'); inTable = true; }
+      else out.push('<tr>' + cells.map((c) => '<td>' + inline(c) + '</td>').join('') + '</tr>');
+      continue;
+    }
+    if (/^#{1,6}\s/.test(t)) {
+      closeBlocks();
+      const lv = t.match(/^#+/)[0].length;
+      out.push('<h' + (lv + 2) + '>' + inline(t.replace(/^#+\s*/, '')) + '</h' + (lv + 2) + '>');
+      continue;
+    }
+    if (/^>\s?/.test(t)) { closeBlocks(); out.push('<div class="md-q">' + inline(t.replace(/^>\s?/, '')) + '</div>'); continue; }
+    if (/^[-*+]\s/.test(t)) {
+      if (listTag !== 'ul') { closeBlocks(); out.push('<ul class="md-l">'); listTag = 'ul'; }
+      out.push('<li>' + inline(t.replace(/^[-*+]\s/, '')) + '</li>');
+      continue;
+    }
+    if (/^\d+[.)]\s/.test(t)) {
+      if (listTag !== 'ol') { closeBlocks(); out.push('<ol class="md-l">'); listTag = 'ol'; }
+      out.push('<li>' + inline(t.replace(/^\d+[.)]\s/, '')) + '</li>');
+      continue;
+    }
+    closeBlocks();
+    out.push('<p>' + inline(t) + '</p>');
+  }
+  if (inCode && codeBuf.length) out.push('<pre class="md-code"><code>' + esc(codeBuf.join('\n')) + '</code></pre>');
+  closeBlocks();
+  return out.join('');
+}
+
+function viewSpace() {
+  const inst = AGENTS.filter((a) => a.inst).sort((a, b) => b.size - a.size);
+  const total = inst.reduce((s, a) => s + a.size, 0);
+  const recycle = FILES.reduce((a, f) => a + f.sz, 0);
+  // 交付物 = 总占用 - 可回收中间文件；中间文件比总占用还大时（多 Agent 共享目录重复统计）钳到 0
+  const deliv = Math.max(0, total - recycle);
+  const delivPct = total > 0 ? Math.round(deliv / total * 100) : 0;
+  const MB = 1048576;
+  // 优先级按字节比较：≥200 MB 高、≥80 MB 中、其余低（f.sz 现在是字节，不是 MB）
+  const hi = FILES.filter((f) => f.sz >= 200 * MB);
+  const prio = (sz) => sz >= 200 * MB ? ['高', 'red'] : sz >= 80 * MB ? ['中', 'amber'] : ['低', ''];
+
+  return '<div class="toolbar">' +
+      '<span class="muted">递归统计 · 只读 · 不自动删除任何文件</span><div class="sp"></div>' +
+      '<button class="btn" onclick="exportFiles()">导出清单</button></div>' +
+
+  '<div class="kpis k4" style="margin-top:0">' +
+    kpiCard('总占用', fmt(total), inst.length + ' 个 Agent 根目录') +
+    kpiCard('交付物', fmt(deliv), delivPct + '%', 'acc') +
+    kpiCard('中间文件', fmt(recycle), '可回收候选', 'warn') +
+    kpiCard('高优先级', hi.length + ' 处', '≥ 200 MB', 'bad') +
+  '</div>' +
+
+  '<div class="cols2">' +
+
+  '<div class="stack"><section class="sec" style="margin-bottom:0"><div class="sec-h"><h2>中间文件清单</h2><span>合计 ' + fmt(recycle) + ' · 按大小排序</span></div><div class="card">' +
+    FILES.slice().sort((a, b) => b.sz - a.sz).map((f) => {
+      const [p, c] = prio(f.sz);
+      return '<div class="frow"><span class="fn" title="' + esc(f.p) + '">' + esc(f.n) + '</span>' +
+        '<span class="chip ' + c + '">' + p + '</span><span class="fs">' + fmt(f.sz) + '</span></div>';
+    }).join('') +
+    '<div class="note">优先级按单文件体积判定：≥ 200 MB 高、≥ 80 MB 中，其余低。H5 端仅做展示与定位，实际回收需在桌面端逐项确认。</div>' +
+  '</div></section></div>' +
+
+  '<div class="stack"><section class="sec" style="margin-bottom:0"><div class="sec-h"><h2>Agent 根目录占用</h2><span>排除符号链接</span></div><div class="card">' +
+    '<div style="display:flex;height:9px;border-radius:5px;overflow:hidden;margin-bottom:14px">' +
+      inst.map((a) => '<i style="width:' + (a.size / total * 100).toFixed(1) + '%;background:var(--' + a.tone + ')"></i>').join('') +
+    '</div>' +
+    inst.map((a) => '<div class="bwrap"><div class="brow"><span>' + badge(a.name) + '</span><span class="v">' + fmt(a.size) + ' · ' + a.sess + ' 会话</span></div>' +
+      '<div class="bar"><i style="width:' + (a.size / inst[0].size * 100).toFixed(0) + '%;background:var(--' + a.tone + ')"></i></div></div>').join('') +
+    '<div class="note">中间文件占比越高，说明该 Agent 的快照与缓存策略越激进。</div>' +
+  '</div></section></div>' +
+
+  '</div>' +
+
+  '<section class="sec" style="margin-top:16px"><div class="callout blue"><div><b>为什么这里只统计不清理</b><br>快照与缓存可能仍被 Agent 的运行状态引用，误删会导致会话无法回滚。AgentCenter 的定位是观测，不是清理工具。</div></div></section>';
+}
+
+function viewMe() {
+  return '<div class="toolbar"><span class="muted">服务状态、常驻方式与隐私边界 · 配置项在侧栏「配置与接入」下</span></div>' +
+
+  (state.nodeNotice
+    ? '<div class="callout amber" style="margin-bottom:12px"><div><b>环境能力不足</b><br>' + esc(state.nodeNotice) +
+      '<div class="note" style="color:inherit;opacity:.8">升级 Node 后重启服务即可，其它 Agent 的扫描不受影响。</div></div></div>'
+    : '') +
+
+  '<section class="sec"><div class="sec-h"><h2>运行状态</h2><span>' + (state.live ? '真实索引 · v0.2' : '演示数据 · v0.2') + '</span></div><div class="card">' +
+    '<div class="row"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z"/><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7"/></svg></div>' +
+      '<div class="b"><div class="t">本地服务</div><div class="d">127.0.0.1:' + (state.servicePort || 7788) + ' · 仅本机可访问</div></div>' +
+      '<div class="r"><span class="pill ' + (state.online ? 'done' : 'wait') + '"><i></i>' + (state.online ? '已连接' : '未连接') + '</span></div></div>' +
+    '<div class="row"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></div>' +
+      '<div class="b"><div class="t">上次扫描</div><div class="d">' + state.lastScan + ' · 增量扫描 ' + AGENTS.filter((a) => a.inst).length + ' 个 Agent</div></div>' +
+      '<div class="r"><button class="btn" onclick="doRefresh(true)">立即扫描</button></div></div>' +
+  '</div></section>' +
+
+  (AC_EMBEDDED
+    ? '<section class="sec"><div class="sec-h"><h2>启动与常驻</h2><span>插件模式</span></div><div class="card">' +
+        '<div class="note" style="margin-top:0">在 DeepSeek Harness 面板里，这些开关<b>不适用</b>：服务与调度都活在 DSH 进程内，' +
+        'DSH 启动即随之启动、退出即停止，不需要（也无法）单独注册开机自启或常驻。</div>' +
+        '<div class="row"><div class="b"><div class="t">开机自启动</div><div class="d">不可用：由 DSH 的启动决定</div></div>' +
+          '<div class="r"><span class="chip amber">不可用</span></div></div>' +
+        '<div class="row"><div class="b"><div class="t">关窗后驻留</div><div class="d">不可用：关掉 DSH 就会释放端口与调度</div></div>' +
+          '<div class="r"><span class="chip amber">不可用</span></div></div>' +
+        '<div class="row"><div class="b"><div class="t">长期无人值守</div>' +
+          '<div class="d">需要另跑独立守护进程（CLI <span class="mono">daemon</span>，仅在源码仓库里提供，npm 包不含 CLI）</div></div>' +
+          '<div class="r"><span class="chip">可选</span></div></div>' +
+      '</div></section>'
+    : '<section class="sec"><div class="sec-h"><h2>启动与常驻</h2><span>脱离 Obsidian</span></div><div class="card">' +
+        '<div class="row"><div class="b"><div class="t">开机自启动</div><div class="d">启动文件夹快捷方式（用户级，免管理员）</div></div>' +
+          '<div class="sw ' + (state.auto ? 'on' : '') + '" onclick="toggleAuto()"></div></div>' +
+        '<div class="row"><div class="b"><div class="t">关窗后驻留</div><div class="d">服务监听 127.0.0.1，关闭浏览器不中断扫描</div></div>' +
+          '<div class="sw on" onclick="toast(\'原型演示：该开关对应 serve.mjs 常驻模式\')"></div></div>' +
+        '<div class="note">H5 版需要一个本机常驻服务提供数据。仓库内 <code>h5/start-h5.cmd</code> 一键启动，<code>h5/autostart-install.ps1</code> 写入开机自启。</div>' +
+      '</div></section>') +
+
+  (AC_EMBEDDED
+    ? ''
+    : '<section class="sec"><div class="card">' +
+        '<button class="btn block pri" onclick="installPwa()">添加到主屏幕（PWA）</button>' +
+        '<button class="btn block" style="margin-top:8px" onclick="toast(\'需要 Obsidian 与插件同机：obsidian://open?vault=...\')">在 Obsidian 主视图中打开</button>' +
+        '<div class="note">主视图以独立标签页打开，可与笔记分屏对照；H5 用于离开 Obsidian 或移动端查看。</div>' +
+      '</div></section>') +
+
+  '<section class="sec"><div class="card">' +
+    '<div class="row"><div class="b"><div class="t">数据与隐私</div><div class="d">只读本地文件，不上传会话内容，默认不调模型</div></div><span class="chip green">硬约束</span></div>' +
+    '<div class="row"><div class="b"><div class="t">覆盖范围</div><div class="d">' + AGENTS.filter((a) => a.inst).length + ' 个已安装 Agent · ' + AGENTS.length + ' 个内置适配器</div></div><span class="chip">可扩展</span></div>' +
+  '</div></section>' +
+
+  '<div class="foot">AgentCenter · H5 独立版 · v0.2<br>' +
+  (state.live
+    ? '数据来自本地索引 ' + (state.generatedAt ? state.generatedAt.replace('T', ' ').slice(0, 19) : '—') + '，只读、不上传'
+    : '当前为演示数据：运行 h5/start-h5.cmd 后自动读取真实扫描结果') + '</div>';
+}
+
+/* ============ 配置中心 ============ */
+function cfgRow(a, i) {
+  const editing = state.editing === i;
+  const st = a.inst
+    ? '<span class="chip green">已安装</span>'
+    : '<span class="chip">未检测到</span>';
+  const pathBlock = editing
+    ? '<div class="fld" style="margin-top:6px"><input id="ap' + i + '" value="' + esc(a.path) + '" ' +
+      'onkeydown="if(event.key===\'Enter\')saveAgentPath(' + i + ')" onblur="saveAgentPath(' + i + ')"></div>'
+    : '<div class="cfg-p" onclick="editAgentPath(' + i + ')" title="' + esc(a.path) + '">' + brkPath(a.path) + '</div>';
+  return '<div class="cfg">' +
+    '<div class="cfg-h"><span class="n">' + esc(a.name) + '</span>' + st +
+      '<div class="sw ' + (a.on ? 'on' : '') + '" onclick="toggleAgent(' + i + ')"></div></div>' +
+    pathBlock +
+    '<div class="cfg-m"><span>' + a.kind + '</span><span>' + (a.inst ? a.sess + ' 会话' : '—') + '</span>' +
+      '<span>' + (a.size ? fmt(a.size) : '—') + '</span>' +
+      '<span style="color:var(--blue)">' + (editing ? '回车保存 · 点击别处取消' : '点击路径可改') + '</span></div>' +
+  '</div>';
+}
+
+function viewConfig() {
+  const on = AGENTS.filter((a) => a.on).length;
+  const inst = AGENTS.filter((a) => a.inst).length;
+  return '<div class="toolbar">' +
+      '<span class="muted">监控哪些 Agent、从哪里读记录、扫描节奏；改动只写本机配置，不动 Agent 自己的数据目录</span>' +
+      '<div class="sp"></div><button class="btn" onclick="resetAgentPaths()">恢复默认路径</button></div>' +
+
+  '<section class="sec"><div class="sec-h"><h2>监控对象</h2><span>启用 ' + on + '/' + AGENTS.length + ' · 已装 ' + inst + '</span></div>' +
+    '<div class="card"><div class="cfg-grid">' + AGENTS.map(cfgRow).join('') + '</div></div></section>' +
+
+  '<div class="cols2">' +
+
+  '<div class="stack"><section class="sec" style="margin-bottom:0"><div class="sec-h"><h2>添加自定义 Agent</h2><span>通用适配器，无需改代码</span></div><div class="card">' +
+    '<div class="form-grid">' +
+      '<div class="fld"><label>名称</label><input id="ca-n" value="MyAgent"></div>' +
+      '<div class="fld"><label>解析方式</label><select id="ca-k"><option>JSONL</option><option>SQLite</option><option>Electron 存储</option><option>目录树</option></select></div>' +
+    '</div>' +
+    '<div class="fld"><label>根路径（绝对路径或 ~ / %APPDATA%）</label><input id="ca-p" value="" placeholder="例如 D:/tools/myagent 或 ~/.myagent"></div>' +
+    '<div class="fld"><label>文件通配符</label><input id="ca-g" value="**/*.jsonl"></div>' +
+    '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn" onclick="testAdapter()">测试解析</button>' +
+      '<button class="btn pri" onclick="addCustomAgent()">保存</button></div>' +
+    '<div class="note">字段映射完整则产出标准任务；字段缺失则降级为「原始片段模式」，只登记文件与占用。</div>' +
+  '</div></section></div>' +
+
+  '<div class="stack"><section class="sec" style="margin-bottom:0"><div class="sec-h"><h2>扫描调度</h2><span>关窗后由守护进程兜底</span></div><div class="card">' +
+    '<div class="row"><div class="b"><div class="t">每日报告</div><div class="d">每天 17:00 汇总当日任务</div></div><div class="r"><span class="chip">17:00</span></div></div>' +
+    '<div class="row"><div class="b"><div class="t">进度扫描</div><div class="d">每 10 分钟增量扫描</div></div><div class="r"><span class="chip">10 min</span></div></div>' +
+    '<div class="row"><div class="b"><div class="t">数据保留</div><div class="d">超期索引归档，源文件不删</div></div><div class="r"><span class="chip">90 天</span></div></div>' +
+    '<div class="row"><div class="b"><div class="t">索引位置</div><div class="d mono" style="white-space:normal;overflow-wrap:anywhere">' + brkPath(state.dataDir || '（未连接本地服务）') + '</div></div></div>' +
+  '</div></section></div>' +
+
+  '</div>' +
+
+  '<div class="foot">配置暂存于本机浏览器存储；接入守护进程后写入 config.json</div>';
+}
+
+/* 配置保存：写入服务端 data/config.json（扫描内核真正读取的地方），
+   localStorage 仅作离线备份。此前只写 localStorage 导致界面改动对实际扫描无效。 */
+function saveAgents() {
+  const m = {};
+  AGENTS.forEach((a) => { m[a.id] = { on: a.on, path: a.path }; });
+  try { localStorage.setItem('ac.h5.agents', JSON.stringify(m)); } catch (e) {}
+}
+
+async function persistAgent(a) {
+  if (!location.protocol.startsWith('http')) return false;
+  try {
+    const qs = new URLSearchParams({ action: 'agent', id: a.id, enabled: a.on ? '1' : '0' });
+    if (a.path) qs.set('path', a.path);
+    const r = await fetch('api/config?' + qs.toString(), { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('保存失败：' + (j.reason || r.status)); return false; }
+    // 服务端已接受，回填真实配置（含用户自定义路径）
+    if (j.config && j.config.agents && j.config.agents[a.id]) {
+      const c = j.config.agents[a.id];
+      if (c.path) a.path = c.path;
+    }
+    return true;
+  } catch (e) { toast('保存失败：' + e.message); return false; }
+}
+
+async function persistResetPath(agentId) {
+  if (!location.protocol.startsWith('http')) return false;
+  try {
+    const qs = new URLSearchParams({ action: 'reset-path' });
+    if (agentId) qs.set('id', agentId);
+    const r = await fetch('api/config?' + qs.toString(), { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('重置失败：' + (j.reason || r.status)); return false; }
+    return true;
+  } catch (e) { toast('重置失败：' + e.message); return false; }
+}
+
+function renderConfig() {
+  $('#view').innerHTML = viewConfig();
+  if (state.editing >= 0) {
+    const el = $('#ap' + state.editing);
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
+}
+
+function toggleAgent(i) {
+  const a = AGENTS[i];
+  if (!a.inst) { toast('未检测到安装，先编辑路径指向正确目录再启用'); return; }
+  a.on = !a.on;
+  persistAgent(a);
+  state.editing = -1;
+  saveAgents(); renderConfig();
+  toast(a.name + (a.on ? ' 已启用监控' : ' 已停止监控'));
+}
+
+function editAgentPath(i) { state.editing = i; renderConfig(); }
+
+function saveAgentPath(i) {
+  if (state.editing !== i) return;
+  const el = $('#ap' + i);
+  if (!el) return;
+  const a = AGENTS[i];
+  a.path = el.value.trim();
+  state.editing = -1;
+  saveAgents(); renderConfig();
+  // 落到 data/config.json，扫描内核下次即按新路径读取
+  persistAgent(a).then((ok) => {
+    if (ok) toast('路径已保存到本机配置：' + a.name);
+  });
+}
+
+function resetAgentPaths() {
+  AGENTS.forEach((a) => { a.path = AGPATH[a.id] || ''; a.on = a.inst; });
+  persistResetPath('');
+  state.editing = -1;
+  saveAgents(); renderConfig();
+  toast('已恢复默认路径');
+}
+
+function testAdapter() {
+  const path0 = ($('#ca-p') || {}).value ? $('#ca-p').value.trim() : '';
+  const glob = ($('#ca-g') || {}).value ? $('#ca-g').value.trim() : '*.jsonl';
+  if (!path0) { toast('请先填写根路径'); return; }
+  // 真正校验：调用服务端探测该路径是否存在（不写任何文件）
+  if (!location.protocol.startsWith('http')) { toast('需要本地服务才能探测路径'); return; }
+  fetch('api/config?action=probe&path=' + encodeURIComponent(path0) + '&glob=' + encodeURIComponent(glob), { method: 'POST', cache: 'no-store' })
+    .then((r) => r.json())
+    .then((j) => {
+      if (!j.ok) { toast('探测失败：' + (j.reason || '')); return; }
+      toast(j.exists
+        ? '路径可访问：' + j.files + ' 个匹配文件' + (j.files ? '（下次扫描生效）' : '（未找到匹配文件）')
+        : '路径不存在：' + path0);
+    })
+    .catch((e) => toast('探测失败：' + e.message));
+}
+
+/* 新增自定义适配器：写入 data/config.json，扫描内核下次即按该路径采集 */
+async function addCustomAgent() {
+  const name = ($('#ca-n') || {}).value ? $('#ca-n').value.trim() : '';
+  const path0 = ($('#ca-p') || {}).value ? $('#ca-p').value.trim() : '';
+  const kind = ($('#ca-k') || {}).value ? $('#ca-k').value : 'JSONL';
+  const glob = ($('#ca-g') || {}).value ? $('#ca-g').value.trim() : '*.jsonl';
+  if (!name) { toast('请填写名称'); return; }
+  if (!path0) { toast('请填写根路径'); return; }
+  if (!location.protocol.startsWith('http')) { toast('需要本地服务才能保存到配置'); return; }
+  try {
+    const family = kind === 'JSONL' ? 'claude-jsonl' : (kind === 'SQLite' ? 'vscdb' : 'electron');
+    const qs = new URLSearchParams({
+      action: 'custom-add',
+      id: 'custom-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      name, path: path0, family, glob
+    });
+    const r = await fetch('api/config?' + qs.toString(), { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('保存失败：' + (j.reason || r.status)); return; }
+    toast('适配器已保存：' + name + '（下次扫描生效）');
+    // 立即在列表里体现（不等重扫）
+    const n = j.config.custom.length;
+    loadSummary().then(() => renderConfig());
+    if ($('#ca-n')) $('#ca-n').value = '';
+    if ($('#ca-p')) $('#ca-p').value = '';
+    void n;
+  } catch (e) { toast('保存失败：' + e.message); }
+}
+
+/* ============ 扫描调度 ============ */
+/* 扫描历史：真实记录来自 /api/scans（data/scans.json）；
+   未连接本地服务时退回演示数据，并在页面上明确标注。 */
+const SCANS = [];   // 真实数据由 /api/scans 填充
+let SCANS_LIVE = false;   // 是否已加载真实扫描历史
+
+/* 把服务端记录映射成页面字段：at/ms/sessions/parsed/skipped/tasks/errors/full */
+function applyScans(j) {
+  const list = (j && j.scans) || [];
+  SCANS.length = 0;
+  SCANS.push(...list.map((s) => ({
+    t: (s.at || '').replace('T', ' ').slice(5, 19) || '—',
+    at: s.at || '',
+    by: s.full ? '全量扫描' : '增量扫描',
+    dur: (s.ms || 0) >= 1000 ? ((s.ms || 0) / 1000).toFixed(1) + 's' : (s.ms || 0) + 'ms',
+    nw: s.sessions || 0,
+    parsed: s.parsed || 0,
+    skipped: s.skipped || 0,
+    tp: s.tasks || 0,
+    err: s.errors || 0
+  })));
+  SCANS_LIVE = list.length > 0;
+  state.scanTotal = (j && j.total) || list.length;
+  state.overrides = (j && j.overrides) || 0;
+}
+
+async function refreshScans() {
+  const ok = await loadScans();
+  if (ok) { toast('扫描历史已刷新：' + SCANS.length + ' 轮'); route(); }
+  else toast('未连接本地服务，仍显示演示数据');
+}
+
+async function loadScans() {
+  if (!location.protocol.startsWith('http')) return false;
+  try {
+    const r = await fetch('api/scans?limit=50', { cache: 'no-store' });
+    if (!r.ok) return false;
+    const j = await r.json();
+    if (!j || !j.ok) return false;
+    applyScans(j);
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ============ 扫描调度（真实规则来自 data/config.json 的 scan 字段） ============ */
+const SCAN_CFG = { intervalMin: 10, intervalEnabled: true, dailyAt: '17:00', dailyEnabled: true, weeklyAt: '09:00', weeklyEnabled: true, reportAuto: true, windowDays: 30 };
+
+function applyScanConfig(cfg) {
+  const sc = (cfg && cfg.scan) || {};
+  if (sc.intervalMin !== undefined) SCAN_CFG.intervalMin = Number(sc.intervalMin) || 0;
+  if (sc.intervalEnabled !== undefined) SCAN_CFG.intervalEnabled = !!sc.intervalEnabled;
+  if (sc.dailyAt) SCAN_CFG.dailyAt = sc.dailyAt;
+  if (sc.dailyEnabled !== undefined) SCAN_CFG.dailyEnabled = !!sc.dailyEnabled;
+  if (sc.weeklyAt) SCAN_CFG.weeklyAt = sc.weeklyAt;
+  if (sc.weeklyEnabled !== undefined) SCAN_CFG.weeklyEnabled = !!sc.weeklyEnabled;
+  if (sc.reportAuto !== undefined) SCAN_CFG.reportAuto = !!sc.reportAuto;
+  if (sc.windowDays !== undefined) SCAN_CFG.windowDays = Number(sc.windowDays) || 30;
+}
+
+async function loadScanConfig() {
+  if (!location.protocol.startsWith('http')) return false;
+  try {
+    const r = await fetch('api/config', { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) return false;
+    applyScanConfig(j.config);
+    return true;
+  } catch (e) { return false; }
+}
+
+/* 调度开关：写入 data/config.json，由 core/scheduler.mjs 实际执行。
+   开关同时出现在「扫描调度」与「日报设置」两页，所以重渲染当前页而不是写死 viewSched()。 */
+async function toggleScanRule(key, name) {
+  const next = !SCAN_CFG[key];
+  SCAN_CFG[key] = next;
+  const rerender = () => {
+    const hash = location.hash || '';
+    if (hash.indexOf('sched') > -1) $('#view').innerHTML = viewSched();
+    else if (hash.indexOf('report') > -1) $('#view').innerHTML = viewReport();
+    else $('#view').innerHTML = viewMe();
+  };
+  if (!location.protocol.startsWith('http')) {
+    rerender();
+    toast((next ? '已开启：' : '已关闭：') + name + '（离线不落盘）');
+    return;
+  }
+  try {
+    const qs = new URLSearchParams({ action: 'scan' });
+    qs.set(key, next ? '1' : '0');
+    const r = await fetch('api/config?' + qs.toString(), { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { SCAN_CFG[key] = !next; toast('保存失败：' + (j.reason || r.status)); }
+    else { applyScanConfig(j.config); toast((next ? '已开启：' : '已关闭：') + name); }
+  } catch (e) { SCAN_CFG[key] = !next; toast('保存失败：' + e.message); }
+  rerender();
+}
+
+function viewSched() {
+  // 规则与 data/config.json 的 scan 字段一一对应；开关直接落盘，由 core/scheduler.mjs 执行
+  const rules = [
+    ['进度轮询', '按固定间隔增量扫描，更新进行中任务状态',
+      '间隔 ' + (SCAN_CFG.intervalMin || 0) + ' 分钟', SCAN_CFG.intervalEnabled, 'intervalEnabled'],
+    ['每日日报', '生成当日工作汇总，核心指标 + 中断提醒',
+      '每天 ' + (SCAN_CFG.dailyAt || '17:00'), SCAN_CFG.dailyEnabled, 'dailyEnabled'],
+    ['周度空间盘点', '统计各 Agent 占用与可回收中间文件',
+      '每周一 ' + (SCAN_CFG.weeklyAt || '09:00'), SCAN_CFG.weeklyEnabled, 'weeklyEnabled'],
+    ['自动生成日报', '扫描完成后按当天索引生成日报，幂等覆盖同一天文件',
+      SCAN_CFG.reportAuto ? '已开启' : '已关闭', SCAN_CFG.reportAuto, 'reportAuto']
+  ];
+  return '<div class="back" onclick="location.hash=\'#/me\'">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>返回我的</div>' +
+
+  '<section class="sec"><div class="sec-h"><h2>扫描调度</h2><span>' + (AC_EMBEDDED ? '由 DSH 宿主进程内按规则执行' : '关窗后由守护进程兜底') + '</span></div><div class="card">' +
+    rules.map(([t, d, chip, on, key]) =>
+      '<div class="row"><div class="b"><div class="t">' + t + '</div><div class="d">' + d + '</div></div>' +
+      '<div class="r"><span class="chip blue">' + chip + '</span></div>' +
+      '<div class="sw ' + (on ? 'on' : '') + '" onclick="toggleScanRule(\'' + key + '\', \'' + t + '\')"></div></div>').join('') +
+    '<div class="note">' + (AC_EMBEDDED
+      ? '当前在 DeepSeek Harness 面板里：这些规则由插件在 DSH 进程内每分钟检查一次，到点即增量扫描（并按需生成日报）；DSH 退出后停止。要长期无人值守，另跑 CLI 守护进程：<span class="mono">node cli/agentcenter.mjs daemon</span>。'
+      : '守护进程 <span class="mono">agentcenter daemon</span> 由系统计划任务注册，窗口关闭后仍按上述规则扫描并产出日报。') + '</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>扫描历史</h2><span>' +
+    (SCANS_LIVE ? '共 ' + (state.scanTotal || SCANS.length) + ' 轮 · 显示最近 ' + SCANS.length + ' 轮' : '演示数据 · ' + SCANS.length + ' 轮') +
+    '</span></div><div class="card">' +
+    (SCANS.length ? SCANS.map((s) => '<div class="cfg">' +
+      '<div class="cfg-h"><span class="n">' + esc(s.t) + '</span>' +
+        '<span class="chip ' + (s.by === '全量扫描' ? 'blue' : '') + '">' + esc(s.by) + '</span>' +
+        '<span class="chip ' + (s.err ? 'amber' : 'green') + '" style="margin-left:auto">' + (s.err ? s.err + ' 个文件解析失败' : '成功') + '</span></div>' +
+      '<div class="cfg-m"><span>耗时 ' + esc(s.dur) + '</span>' +
+        '<span>会话 ' + s.nw + '</span>' +
+        '<span>解析 ' + s.parsed + '</span>' +
+        '<span>增量跳过 ' + s.skipped + '</span>' +
+        '<span>任务 ' + s.tp + '</span>' +
+        '<span>错误 ' + s.err + '</span></div>' +
+    '</div>').join('')
+      : '<div class="empty" style="padding:26px"><b>还没有扫描记录</b>运行 <code>node cli/agentcenter.mjs scan</code> 后这里会按轮次列出耗时、会话数与错误数</div>') +
+    (SCANS_LIVE
+      ? '<div class="note">数据来自 <span class="mono">data/scans.json</span>，每轮扫描写入一条，保留最近 50 条。' +
+        (state.overrides ? '另有 ' + state.overrides + ' 条人工标记完成记录（<span class="mono">data/overrides.json</span>）。' : '') +
+        '解析失败的文件会登记在错误队列，修复适配器后下轮自动重试。</div>'
+      : '<div class="note">当前未连接本地服务，显示的是演示数据；启动 <span class="mono">h5/start-h5.cmd</span> 后读取真实扫描历史。</div>') +
+  '</div></section>' +
+  '<div class="toolbar" style="justify-content:flex-end;margin:12px 0 0">' +
+    '<button class="btn" onclick="refreshScans()">刷新扫描历史</button></div>';
+}
+
+/* ============ Agent 接入 ============ */
+function viewConn() {
+  // 与 mcp/server.mjs 的工具清单保持一致（7 个只读工具）
+  const tools = [
+    ['agentcenter_summary', 'range', '周期汇总：任务数、耗时、空间、各 Agent 分布'],
+    ['agentcenter_list_sessions', 'agent, status, limit', '任务清单，可按状态与关键字过滤'],
+    ['agentcenter_get_session', 'taskId', '单任务完整记录：状态依据、路径、产出、待办'],
+    ['agentcenter_get_conversation', 'taskId, limit', '回放单个任务的完整对话（只读原始会话文件）'],
+    ['agentcenter_list_todos', 'status', '跨 Agent 待办清单'],
+    ['agentcenter_storage_report', 'agent', '空间占用与中间文件报告（只统计不删除）'],
+    ['agentcenter_trigger_scan', 'full', '触发一轮只读扫描并返回本轮统计']
+  ];
+  const clients = [
+    ['WorkBuddy / CodeBuddy', '~/.workbuddy/mcp.json', '插件页一键写入'],
+    ['Claude Code', '~/.claude.json', 'claude mcp add'],
+    ['Qoder', '设置 → MCP 服务器', '手动添加 stdio'],
+    ['DeepSeek / Trae', '各自 MCP 配置', '手动添加 stdio']
+  ];
+  return '<div class="back" onclick="location.hash=\'#/me\'">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>返回我的</div>' +
+
+  '<section class="sec"><div class="sec-h"><h2>Agent 接入</h2><span>MCP · stdio</span></div><div class="card">' +
+    '<div class="note" style="margin-top:0">以 stdio 方式暴露 ' + tools.length + ' 个工具，任何支持 MCP 的客户端都能在对话里反查任务数据，不需要打开 Obsidian。' +
+      (AC_EMBEDDED ? ' <b>注意：MCP Server 与 CLI 只随源码仓库提供，npm 包里没有打包</b>，所以从插件市场安装时这一页只是说明。' : '') + '</div>' +
+    tools.map(([n, p, r]) => '<div class="cfg">' +
+      '<div class="cfg-p" style="margin-top:0;cursor:default">' + n + '</div>' +
+      '<div class="cfg-m"><span>' + p + '</span></div>' +
+      '<div style="font-size:11px;color:var(--tx3);margin-top:3px">' + r + '</div>' +
+    '</div>').join('') +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>各客户端接入</h2><span>写入后重启并信任</span></div><div class="card">' +
+    clients.map(([c, p, d]) => '<div class="row"><div class="b"><div class="t">' + c + '</div>' +
+      '<div class="d mono">' + esc(p) + '</div></div><div class="r" style="font-size:11px">' + d + '</div></div>').join('') +
+    '<div class="note">MCP 服务只读，且只响应本机 stdio 调用，不监听端口，不对外暴露。</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>命令行</h2><span>供计划任务与脚本调用</span></div><div class="card">' +
+    '<div class="cmd">agentcenter scan --agents workbuddy,codebuddy --full\n' +
+    'agentcenter summary --start 2026-10-29 --end 2026-10-29 --json\n' +
+    'agentcenter todos --status pending --json\n' +
+    'agentcenter storage --agent workbuddy --json\n' +
+    'agentcenter report --date 2026-10-29 --out ./日报.md\n' +
+    'agentcenter mcp</div>' +
+    '<div class="note">所有命令支持 <span class="mono">--json</span>，便于接入外部看板或 CI 任务。</div>' +
+  '</div></section>';
+}
+
+/* ============ 系统架构 ============ */
+function viewArch() {
+  const layer = (t, s, items, tone) =>
+    '<div class="layer"><div class="lh"><span class="chip ' + tone + '">' + t + '</span><span>' + s + '</span></div>' +
+    '<div class="li">' + items.map((i) => '<span class="chip">' + i + '</span>').join('') + '</div></div>';
+
+  const forms = [
+    ['Obsidian 插件', 'Obsidian 主进程', '日常查看、日报沉淀、设置管理'],
+    ['CLI / 守护进程', 'Node 常驻 + 系统计划任务', 'Obsidian 关闭时定时扫描与出报'],
+    ['MCP Server', 'stdio，被各 Agent 拉起', '在任意 Agent 对话中反查任务数据']
+  ];
+  const bounds = [
+    ['只读', '绝不写入、移动、删除 Agent 源目录', 'hard', '硬约束'],
+    ['本地解析', '对话内容不出本机，默认不调模型', 'hard', '硬约束'],
+    ['不自动删文件', '中间文件只统计与提示', 'hard', '硬约束'],
+    ['状态可解释', '每个状态附判定依据，可人工修正', 'soft', '设计约束']
+  ];
+
+  return '<div class="back" onclick="location.hash=\'#/me\'">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>返回我的</div>' +
+
+  '<section class="sec"><div class="sec-h"><h2>系统架构</h2><span>四层 · 三形态</span></div><div class="card">' +
+    layer('采集层', AGENTS.length + ' 个适配器 + 通用自定义适配器，只读扫描',
+      ['WorkBuddy', 'CodeBuddy', 'Trae', 'zcode', 'OpenCode', 'AtomCode', 'DeepSeek Harness', 'Codex', 'Claude Code', 'Qoder', '豆包', '千问'], 'blue') +
+    '<div class="down">↓ 统一归一化</div>' +
+    layer('解析层', '会话 → 任务切分、状态判定、耗时 / 空间统计、待办抽取',
+      ['session-meta', 'message', 'tool_use', 'todo 文件', 'file-history'], 'teal') +
+    '<div class="down">↓ 增量写入</div>' +
+    layer('索引层', 'JSON 分月分片 + 指纹增量，落盘插件目录',
+      ['index/2026-10.json', 'fingerprints.json', 'scans.json'], 'purple') +
+    '<div class="down">↓ 读取渲染</div>' +
+    layer('呈现层', 'Obsidian 视图 + 日报 + 外部接入',
+      ['Dashboard', '任务详情', '侧栏卡片', '日报 Markdown', 'MCP Server', 'CLI'], 'amber') +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>三种形态共用同一内核</h2><span>避免逻辑分叉</span></div><div class="card">' +
+    forms.map(([f, h, u]) => '<div class="row"><div class="b"><div class="t">' + f + '</div>' +
+      '<div class="d">' + h + '</div></div><div class="r" style="font-size:11px;max-width:46%">' + u + '</div></div>').join('') +
+    '<div class="note">同一套适配器与判定逻辑，三种形态只换宿主，不改内核，避免同一份数据在两处算出不同结论。</div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>关键边界</h2><span>评审需确认的约束</span></div><div class="card">' +
+    bounds.map(([t, d, k, c]) => '<div class="row"><div class="b"><div class="t">' + t + '</div><div class="d">' + d + '</div></div>' +
+      '<div class="r"><span class="chip ' + (k === 'hard' ? 'green' : 'amber') + '">' + c + '</span></div></div>').join('') +
+  '</div></section>';
+}
+
+/* ============ 日报设置 ============ */
+function viewReport() {
+  return '<div class="back" onclick="location.hash=\'#/me\'">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>返回我的</div>' +
+
+  '<section class="sec"><div class="sec-h"><h2>日报</h2><span>生成与存放</span></div><div class="card">' +
+    '<div class="row"><div class="b"><div class="t">日报目录</div>' +
+      '<div class="d mono" style="white-space:normal;overflow-wrap:anywhere">' + brkPath((state.dataDir || '（未知数据目录）') + WIN('\\日报')) + '</div></div>' +
+      '<div class="r"><span class="chip">' + (AC_EMBEDDED ? '在 DSH 设置里改数据目录' : '随数据目录') + '</span></div></div>' +
+    '<div class="row"><div class="b"><div class="t">扫描后自动生成当日日报</div>' +
+      '<div class="d">开启后每轮扫描都会重写当天日报（会冲掉 AI 总结段）；关掉则只在「生成今日日报」时写</div></div>' +
+      '<div class="sw ' + (SCAN_CFG.reportAuto === true ? 'on' : '') + '" onclick="toggleScanRule(\'reportAuto\', \'自动日报\')"></div></div>' +
+    '<div class="row"><div class="b"><div class="t">日报格式（模板）</div>' +
+      '<div class="d">' + (AC_EMBEDDED
+        ? '在 DSH 的 设置 → AgentCenter → 日报格式 里编辑；这里只影响 AI 总结的结构'
+        : '完成事项 / 待办 / 中断 / 空间 / Agent 分布（确定性日报的固定结构）') + '</div></div>' +
+      '<div class="r"><span class="chip ' + (AC_EMBEDDED ? 'blue' : '') + '">' + (AC_EMBEDDED ? '去 DSH 设置' : '固定结构') + '</span></div></div>' +
+    '<button class="btn block" style="margin-top:12px" onclick="exportReport()">立即导出一份</button>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>数据与性能</h2><span>索引与增量</span></div><div class="card">' +
+    '<div class="row"><div class="b"><div class="t">索引位置</div><div class="d mono" style="white-space:normal;overflow-wrap:anywhere">' +
+      brkPath(state.dataDir || WIN('（未连接本地服务，索引目录未知）')) + '</div></div>' +
+      '<div class="r"><button class="btn" onclick="toast(\'索引为本地文件，直接复制目录即可备份\')">备份</button></div></div>' +
+    '<div class="row"><div class="b"><div class="t">增量扫描</div>' +
+      '<div class="d">始终开启：基于 mtime + size 指纹跳过未变更的会话文件（没有关闭入口）</div></div>' +
+      '<div class="r"><span class="chip green">常开</span></div></div>' +
+    '<div class="row"><div class="b"><div class="t">扫描窗口</div>' +
+      '<div class="d">尚未实现：当前每轮都枚举全部会话，仅靠指纹跳过未变更文件</div></div>' +
+      '<div class="r"><span class="chip amber">未实现</span></div></div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>AI 日报</h2><span>由 DSH 的模型生成</span></div><div class="card">' +
+    '<div class="row"><div class="b"><div class="t">AI 总结</div><div class="d">在「日报」页点「AI 总结」，由 DSH 里已配置的模型按你的格式生成当天日报（只读展示，不覆盖已落盘的文件）</div></div>' +
+      '<div class="r"><button class="btn" onclick="location.hash=\'#/reports\'">去日报页</button></div></div>' +
+    '<div class="row"><div class="b"><div class="t">模型与格式</div><div class="d">在 DSH 的 设置 → AgentCenter → AI 日报 里选一个模型、写日报格式（默认是「按项目总结」模板）；模型 key 沿用 DSH，不在这里填写</div></div></div>' +
+  '</div></section>' +
+
+  '<section class="sec"><div class="sec-h"><h2>隐私</h2><span>硬约束</span></div><div class="card">' +
+    '<div class="note" style="margin-top:0">AgentCenter 以只读方式访问各 Agent 的对话记录目录，全部解析在本地完成，不上传任何对话内容；中间文件仅统计与提示，不会自动删除任何文件。首次扫描前请确认各 Agent 目录路径配置正确。</div>' +
+  '</div></section>';
+}
+
+function swEl(el, name) {
+  el.classList.toggle('on');
+  toast((el.classList.contains('on') ? '已开启：' : '已关闭：') + name);
+}
+
+
+function viewDetail(id) {
+  const t = TASKS.find((x) => x.id === id);
+  if (!t) return '<div class="empty"><b>任务不存在</b>可能已被清理或索引重建</div>';
+  CURRENT_TASK = t.id;
+  // 产出文件与时间线都来自真实索引 / 对话回放，不再有任何演示数据兜底内容
+  const files = [{ n:'（该任务暂无产出文件记录）', k:'—', sz:'—' }];
+  const tl = [];   // 时间线由下方「对话详情」按需从原始会话文件回放
+
+  return '<a class="back" href="' + state.prev + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>返回</a>' +
+    '<div class="dhead"><h2>' + esc(t.title) + '</h2>' +
+      '<div class="dm">' + pill(t.st) + badge(t.a) + '<span class="chip">' + esc(t.proj) + '</span>' +
+        (t.manual
+          ? '<span class="chip green" title="' + esc('人工标记于 ' + (t.manualAt || '—') + '，原判定：' + (STL[t.autoSt] || '—')) + '">人工完成</span>' +
+            '<button class="mark" data-unmark="' + esc(t.id) + '">撤销标记</button>'
+          : (MARKABLE[t.st] ? '<button class="mark" data-mark="' + esc(t.id) + '">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>' +
+            (t.st === 'int' ? '标记完成' : '确认完成') + '</button>' : '')) +
+      '</div></div>' +
+
+    '<section class="sec"><div class="card"><dl class="kv">' +
+      '<dt>起止</dt><dd>' + (t.sd ? shortDate(t.sd) + ' ' + t.s + ' – ' + (t.e ? shortDate(t.ed || t.sd) + ' ' + t.e : '进行中') : t.s + ' – ' + (t.e || '进行中')) + '</dd>' +
+      '<dt>耗时</dt><dd>活跃 ' + hm(t.act) + ' · 墙钟 ' + (t.wall ? hm(t.wall) : '—') + '</dd>' +
+      '<dt>规模</dt><dd>' + t.msg + ' 条消息 · ' + t.tc + ' 次工具调用</dd>' +
+      '<dt>产出</dt><dd>' + t.files + ' 个文件 · ' + fmt(t.sp) + '</dd>' +
+      '<dt>工作目录</dt><dd class="pth">' + brkPath(t.dir) + '</dd>' +
+      '<dt>会话文件</dt><dd class="pth">' + brkPath(t.src) + '</dd>' +
+      '<dt>状态依据</dt><dd>' + esc(t.reason) + '</dd>' +
+    '</dl></div></section>' +
+
+    (tl.length ? '<section class="sec"><div class="sec-h"><h2>时间线</h2><span>' + tl.length + ' 个节点</span></div><div class="card">' +
+      '<div class="tl">' + tl.map((e) =>
+        '<div class="ev ' + e.k + '"><div class="eh"><b>' + esc(e.who) + '</b><span>' + e.tm + '</span></div>' +
+        '<div class="eb">' + esc(e.bd) + '</div></div>').join('') + '</div>' +
+    '</div></section>' : '') +
+
+    '<section class="sec"><div class="sec-h"><h2>产出文件</h2><span>交付物 / 中间文件</span></div><div class="card">' +
+      files.map((f) => '<div class="frow"><span class="fn">' + esc(f.n) + '</span>' +
+        '<span class="chip ' + (f.k === '交付物' ? 'green' : 'amber') + '">' + f.k + '</span>' +
+        '<span class="fs">' + f.sz + '</span></div>').join('') +
+    '</div></section>' +
+
+    '<section class="sec"><div class="sec-h"><h2>待办</h2><span>' + t.todo + ' 项</span></div><div class="card">' +
+      (t.todo > 0 ? '<div class="note" style="margin-top:0">该任务遗留 ' + t.todo + ' 项未完成事项，可在「待办」页勾销。</div>'
+        : '<div class="note" style="margin-top:0">无遗留待办。</div>') +
+    '</div></section>' +
+
+    '<section class="sec"><div class="sec-h"><h2>关联 DSH 会话</h2><span>继续对话</span></div><div class="card">' +
+      '<div id="linkBox">' + renderLinkRow(t.id) + '</div>' +
+    '</div></section>' +
+
+    '<section class="sec"><div class="sec-h"><h2>对话详情</h2><span>原始会话文件回放</span></div><div class="card">' +
+      '<div class="row"><div class="b"><div class="t">查看当时的对话</div>' +
+        '<div class="d">按时间顺序回放用户消息、助手回复与工具调用，只读原始会话文件</div></div>' +
+        '<div class="r"><button class="btn pri" onclick="loadConversation(\'' + esc(t.id) + '\')">查看对话详情</button></div></div>' +
+      '<div id="convBox" class="conv-box"></div>' +
+    '</div></section>' +
+
+    '<section class="sec"><div class="sec-h"><h2>原始记录</h2><span>只读</span></div><div class="card">' +
+      '<div class="mono" style="word-break:normal;overflow-wrap:anywhere;color:var(--tx2)">' + brkPath(t.src || d.path) + '</div>' +
+      '<div class="note">H5 无本地文件系统权限，路径仅供复制；文件操作请在桌面端进行。</div>' +
+    '</div></section>';
+}
+
+/* ============ 对话详情（回放原始会话文件） ============ */
+const ROLE_META = {
+  user: ['用户', 'u'],
+  assistant: ['助手', 'a'],
+  think: ['思考', 'k'],
+  tool: ['工具调用', 't'],
+  result: ['工具结果', 'r'],
+  todo: ['待办', 'd']
+};
+
+/* 对话正文可能很长：纯文本按 260 字折叠，Markdown 消息按高度折叠（.ceb.md-body[data-fold]） */
+const CONV_CACHE = {};
+const MD_ROLES = { user: 1, assistant: 1, think: 1 };
+
+function convEvent(e, i) {
+  const meta = ROLE_META[e.role] || ['消息', 'a'];
+  const full = String(e.text || '');
+  CONV_CACHE[i] = full;
+  const head = '<div class="ceh"><b>' + meta[0] + (e.tool ? ' · ' + esc(e.tool) : '') + '</b>' +
+    '<span>' + esc(e.time || '') + '</span></div>';
+  if (MD_ROLES[e.role]) {
+    const long = full.length > 700;
+    return '<div class="cev ' + meta[1] + '">' + head +
+      '<div class="ceb md-body md-view" id="ce' + i + '" data-fold="' + (long ? '1' : '0') + '">' +
+        renderMarkdown(full) + '</div>' +
+      (long ? '<button class="cex" onclick="toggleConvFold(' + i + ')">展开全文（' + full.length + ' 字）</button>' : '') +
+    '</div>';
+  }
+  const long = full.length > 260;
+  return '<div class="cev ' + meta[1] + '">' + head +
+    '<div class="ceb' + (long ? ' cut' : '') + '" id="ce' + i + '" data-full="' + (long ? 1 : 0) + '">' +
+      esc(long ? full.slice(0, 260) : full) + '</div>' +
+    (long ? '<button class="cex" onclick="toggleConv(' + i + ')">展开全文（' + full.length + ' 字）</button>' : '') +
+  '</div>';
+}
+
+/* ============ 与 DSH 插件的宿主桥（iframe 内 ↔ 插件面板） ============
+   页面在 DSH 的 AgentCenter 面板里以 iframe 打开，跨域拿不到插件的能力，
+   所以「继续对话 / 打开关联会话 / 读关联表」都通过 postMessage 交给宿主执行：
+     H5 → 父窗口 { source:'agentcenter-h5', type:'request', requestId, action, payload }
+     父窗口 → H5 { source:'dsh-agentcenter', type:'response', requestId, ok, data, error } */
+const AC_EMBEDDED = (() => { try { return window.parent !== window; } catch (e) { return false; } })();
+/* 嵌在 DSH 面板里时，连接状态 / 上次扫描 / 立即扫描由面板顶部工具条统一展示
+   （排在「刷新」前面），页内这份就不重复了；独立打开时仍保留。 */
+if (AC_EMBEDDED) {
+  try { document.body.setAttribute('data-embedded', '1'); } catch (e) {}
+}
+const HOST_PENDING = {};
+let LINKS = null;
+let CURRENT_TASK = null;
+
+function hostRequest(action, payload, timeoutMs) {
+  return new Promise((resolve) => {
+    if (!AC_EMBEDDED) { resolve({ ok: false, error: 'not-embedded' }); return; }
+    const requestId = 'ac' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const limit = Number(timeoutMs) > 0 ? Number(timeoutMs) : 20000;   // 模型调用比普通动作慢
+    const timer = setTimeout(() => {
+      delete HOST_PENDING[requestId];
+      resolve({ ok: false, error: '宿主未响应' });
+    }, limit);
+    HOST_PENDING[requestId] = (msg) => { clearTimeout(timer); resolve(msg); };
+    try {
+      window.parent.postMessage({
+        source: 'agentcenter-h5', type: 'request',
+        requestId: requestId, action: action, payload: payload || {}
+      }, '*');
+    } catch (e) {
+      clearTimeout(timer);
+      delete HOST_PENDING[requestId];
+      resolve({ ok: false, error: e.message });
+    }
+  });
+}
+
+window.addEventListener('message', function (ev) {
+  const m = ev.data;
+  if (!m || m.source !== 'dsh-agentcenter') return;
+  if (m.type === 'event' && m.event === 'scanned') { refreshAfterScan(); return; }
+  if (m.type !== 'response') return;
+  const done = HOST_PENDING[m.requestId];
+  if (done) { delete HOST_PENDING[m.requestId]; done(m); }
+});
+
+/* 宿主定时扫描完成：静默重读索引，保留滚动位置；用户正在输入时不打断 */
+let afterScanTimer = null;
+function refreshAfterScan() {
+  if (afterScanTimer !== null) return;
+  const active = document.activeElement;
+  if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
+  afterScanTimer = setTimeout(async () => {
+    afterScanTimer = null;
+    const y = window.scrollY;
+    await probe();
+    window.scrollTo(0, y);
+  }, 400);
+}
+
+/* 关联表由插件写到 data/links.json，这里只缓存一份用于展示 */
+async function ensureLinks(force) {
+  if (LINKS && !force) return LINKS;
+  const r = await hostRequest('links');
+  LINKS = (r && r.ok && r.data && r.data.tasks) ? r.data.tasks : {};
+  return LINKS;
+}
+
+function renderLinkRow(taskId) {
+  const link = LINKS && LINKS[taskId];
+  if (link && link.sessionId) {
+    return '<div class="row"><div class="b">' +
+        '<div class="t">已关联 DSH 会话</div>' +
+        '<div class="d mono session-id">' + esc(link.sessionId) + '</div>' +
+        '<div class="link-note">关联于 ' + esc((link.at || '').replace('T', ' ').slice(0, 19)) +
+          ' · 方式：' + esc(link.action === 'created' ? '新建会话并引入对话' : '打开原会话') + '</div></div>' +
+      '<div class="r"><button class="conv-act" onclick="openLinkedSession(\'' + esc(link.sessionId) + '\')">打开该会话</button></div>' +
+    '</div>';
+  }
+  return '<div class="row"><div class="b">' +
+      '<div class="t">尚未关联 DSH 会话</div>' +
+      '<div class="link-note">在「对话详情」里点「继续对话」会建立关联：DSH 自己的会话直接打开；其它 Agent 的会话内容会导入一个新会话的输入框。</div></div>' +
+    '<div class="r"><button class="conv-act" onclick="continueConversation(\'' + esc(taskId) + '\')">继续对话</button></div>' +
+  '</div>';
+}
+
+function refreshLinkBox(taskId) {
+  if (CURRENT_TASK !== taskId) return;
+  const box = $('#linkBox');
+  if (box) box.innerHTML = renderLinkRow(taskId);
+}
+
+async function loadLinksFor(taskId) {
+  if (!AC_EMBEDDED) { refreshLinkBox(taskId); return; }
+  await ensureLinks();
+  refreshLinkBox(taskId);
+}
+
+async function continueConversation(taskId) {
+  if (!AC_EMBEDDED) {
+    toast('请在 DeepSeek Harness 的 AgentCenter 面板中使用「继续对话」');
+    return;
+  }
+  toast('正在处理…');
+  const r = await hostRequest('continue', { taskId: taskId });
+  if (!r || !r.ok) {
+    toast('继续对话失败：' + ((r && r.error) || '未知错误'));
+    return;
+  }
+  LINKS = null;
+  await ensureLinks(true);
+  refreshLinkBox(taskId);
+  loadConversation(taskId);
+  const created = r.data && r.data.action === 'created';
+  const seeded = r.data && r.data.seeded;
+  if (!created) toast('已打开对应的 DSH 会话');
+  else if (seeded === 'preserved') toast('已在新会话里打开；草稿里原有内容被保留，可手动插入引用');
+  else if (seeded === 'applied') toast('已切换到该任务的工作区，并把引用文件放进对话框');
+  else toast('已新建会话（工作区=该任务目录）；自动填入引用失败，可手动插入');
+}
+
+async function openLinkedSession(sessionId) {
+  if (!AC_EMBEDDED) {
+    toast('请在 DeepSeek Harness 的 AgentCenter 面板中打开会话');
+    return;
+  }
+  const r = await hostRequest('open-session', { sessionId: sessionId });
+  if (!r || !r.ok) toast('打开会话失败：' + ((r && r.error) || '未知错误'));
+}
+
+function renderConversation(c) {
+  if (!c.ok) {
+    return '<div class="callout amber" style="margin-top:10px"><div><b>无法读取对话</b><br>' +
+      esc(c.reason || '未知原因') + '</div></div>';
+  }
+  if (c.unavailable) {
+    return '<div class="callout amber" style="margin-top:10px"><div><b>该 Agent 的对话正文不可读</b><br>' + esc(c.note || '') +
+      '<div class="note" style="color:inherit;opacity:.8">源文件：' + brkPath(c.sourceFile) + '</div></div></div>';
+  }
+  const linked = LINKS && LINKS[c.taskId];
+  const head = '<div class="conv-meta">' +
+      '<span class="chip green">已读取</span>' +
+      '<span>' + c.total + ' 个节点' + (c.truncated ? '（显示前 ' + c.events.length + ' 条）' : '') + '</span>' +
+      '<span>' + fmt(c.bytes) + '</span>' +
+      '<span>格式 ' + esc(c.family) + (c.frames ? ' · ' + c.frames + ' 帧' : '') + '</span>' +
+      '<span>更新 ' + esc((c.mtime || '').replace('T', ' ').slice(0, 19)) + '</span>' +
+      (linked ? '<span class="chip">已关联 DSH 会话</span>' : '') +
+      '<span class="grow"></span>' +
+      (c.taskId ? '<button class="conv-act" onclick="continueConversation(\'' + esc(c.taskId) + '\')">继续对话</button>' : '') +
+    '</div>' +
+    '<div class="mono conv-src">' + brkPath(c.sourceFile) + '</div>';
+  if (!c.events.length) return head + '<div class="empty" style="padding:24px">该会话没有可回放的消息</div>';
+  return head + '<div class="conv">' + c.events.map(convEvent).join('') + '</div>' +
+    (c.truncated ? '<div class="note">共 ' + c.total + ' 个节点，已显示前 ' + c.events.length + ' 条。用 CLI 可导出完整对话：node cli/agentcenter.mjs conversation --taskId ' + esc(c.taskId) + '</div>' : '');
+}
+
+/* Markdown 消息的展开/收起：只切 data-fold，不重渲染 */
+function toggleConvFold(i) {
+  const el = $('#ce' + i);
+  if (!el) return;
+  const btn = el.parentElement.querySelector('.cex');
+  const folded = el.getAttribute('data-fold') === '1';
+  el.setAttribute('data-fold', folded ? '0' : '1');
+  if (btn) {
+    btn.textContent = folded
+      ? '收起'
+      : '展开全文（' + String(CONV_CACHE[i] || '').length + ' 字）';
+  }
+}
+
+/* ============ 人工标记完成 ============ */
+/* 只写本机索引（data/overrides.json），不改 Agent 原始会话；成功后本地同步状态，
+   任务随即从「已中断 / 等待确认」的计数与筛选中消失。 */
+async function markTaskDone(evt, taskId) {
+  if (evt) { evt.preventDefault(); evt.stopPropagation(); }
+  const t = TASKS.find((x) => x.id === taskId);
+  if (!t) return;
+  if (!location.protocol.startsWith('http')) {
+    toast('需要本地服务：请用 h5/start-h5.cmd 启动后访问');
+    return;
+  }
+  try {
+    const r = await fetch('api/task-done?taskId=' + encodeURIComponent(taskId), { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('标记失败：' + (j.reason || r.status)); return; }
+    // 本地即时生效：改成已完成，并保留原状态用于说明
+    t.autoSt = t.st;
+    t.st = 'done';
+    t.manual = true;
+    t.manualAt = j.overrides && j.overrides[taskId] ? j.overrides[taskId].at : null;
+    t.reason = '人工标记完成（原判定：' + (STL[t.autoSt] || t.autoSt) + '）';
+    rerenderTasks();
+    updateBadge();
+    toast('已标记完成：该任务不再计入「' + (STL[t.autoSt] || t.autoSt) + '」');
+  } catch (e) {
+    toast('标记失败：' + e.message);
+  }
+}
+
+/* 撤销人工标记：恢复机器判定 */
+async function unmarkTaskDone(evt, taskId) {
+  if (evt) { evt.preventDefault(); evt.stopPropagation(); }
+  const t = TASKS.find((x) => x.id === taskId);
+  if (!t) return;
+  if (!location.protocol.startsWith('http')) { toast('需要本地服务'); return; }
+  try {
+    const r = await fetch('api/task-done?taskId=' + encodeURIComponent(taskId) + '&undo=1', { method: 'POST', cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok || !j.ok) { toast('撤销失败：' + (j.reason || r.status)); return; }
+    if (t.autoSt) t.st = t.autoSt;
+    t.manual = false;
+    t.manualAt = null;
+    rerenderTasks();
+    updateBadge();
+    toast('已撤销人工标记');
+  } catch (e) { toast('撤销失败：' + e.message); }
+}
+
+async function loadConversation(taskId) {
+  const box = $('#convBox');
+  if (!box) return;
+  if (!location.protocol.startsWith('http')) {
+    box.innerHTML = '<div class="callout amber" style="margin-top:10px"><div><b>需要本地服务</b><br>' +
+      '对话回放要读取原始会话文件，请通过 h5/start-h5.cmd 启动本地服务后访问。</div></div>';
+    return;
+  }
+  box.innerHTML = '<div class="note" style="margin-top:10px">正在读取原始会话文件…</div>';
+  try {
+    const r = await fetch('api/conversation?taskId=' + encodeURIComponent(taskId) + '&limit=300', { cache: 'no-store' });
+    const j = await r.json();
+    if (AC_EMBEDDED) await ensureLinks();
+    box.innerHTML = renderConversation(j);
+    if (j.ok && !j.unavailable) toast('已读取 ' + j.total + ' 个节点');
+  } catch (e) {
+    box.innerHTML = '<div class="callout red" style="margin-top:10px"><div><b>读取失败</b><br>' + esc(e.message) + '</div></div>';
+  }
+}
+
+/* 展开/收起长消息：全文已随响应取回，缓存在 CONV_CACHE */
+function toggleConv(i) {
+  const el = $('#ce' + i);
+  if (!el || !CONV_CACHE[i]) return;
+  const btn = el.parentElement.querySelector('.cex');
+  const cut = el.classList.toggle('cut');
+  el.textContent = cut ? CONV_CACHE[i].slice(0, 260) : CONV_CACHE[i];
+  if (btn) btn.textContent = cut ? '展开全文（' + CONV_CACHE[i].length + ' 字）' : '收起';
+}
+
+
+function route() {
+  let raw = (location.hash || '').replace(/^#\/?/, '') || 'home';
+  // 支持 #/tasks?st=run 这类带查询的深链：查询部分单独解析，不进路由段
+  const qi = raw.indexOf('?');
+  if (qi > -1) {
+    const qs = raw.slice(qi + 1);
+    raw = raw.slice(0, qi);
+    qs.split('&').forEach((kv) => {
+      if (!kv) return;
+      const i = kv.indexOf('=');
+      const k = decodeURIComponent(i > -1 ? kv.slice(0, i) : kv);
+      const v = decodeURIComponent(i > -1 ? kv.slice(i + 1) : '');
+      if (k === 'st') state.filter = v || 'all';      // 状态筛选
+      else if (k === 'ag') state.aFilter = v || 'all'; // Agent 筛选
+    });
+  }
+  // 任务 id 含冒号、@ 等字符，写入 hash 时会被编码；这里逐段解码再匹配
+  const parts = raw.split('/').map((s) => {
+    try { return decodeURIComponent(s); } catch (e) { return s; }
+  });
+  const p = parts[0];
+  const view = $('#view');
+  let tab = p;
+  state.editing = -1;
+
+  if (p === 'task') {
+    view.innerHTML = viewDetail(parts[1]);
+    tab = 'tasks';
+    loadLinksFor(parts[1]);
+  } else if (p === 'tasks') {
+    view.innerHTML = viewTasks();
+  } else if (p === 'todos') {
+    view.innerHTML = viewTodos();
+  } else if (p === 'reports') {
+    view.innerHTML = viewReports();
+    if (!REPORTS_LIVE) loadReports();
+  } else if (p === 'space') {
+    view.innerHTML = viewSpace();
+  } else if (p === 'me') {
+    view.innerHTML = viewMe();
+  } else if (p === 'config') {
+    view.innerHTML = viewConfig();
+  } else if (p === 'sched') {
+    view.innerHTML = viewSched();
+    // 调度规则以服务端配置为准：异步拉到后重渲染（离线则保持默认）
+    loadScanConfig().then((ok) => { if (ok && location.hash.indexOf('sched') > -1) view.innerHTML = viewSched(); });
+  } else if (p === 'conn') {
+    view.innerHTML = viewConn();
+  } else if (p === 'arch') {
+    view.innerHTML = viewArch();
+  } else if (p === 'report') {
+    view.innerHTML = viewReport();
+  } else {
+    view.innerHTML = viewHome();
+    tab = 'home';
+  }
+
+  if (p !== 'task' && p !== 'home') state.prev = '#/' + p;
+  else if (p === 'home') state.prev = '#/home';
+
+  document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.nav === tab));
+  // 选中项不在可视区内时把它滚进来，再刷新左右箭头状态
+  const activeNav = document.querySelector('.nav a.on');
+  if (activeNav && typeof activeNav.scrollIntoView === 'function') {
+    try { activeNav.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+  }
+  updateNavArrows();
+  window.scrollTo(0, 0);
+  syncChrome(p);
+  bindInline();
+  persistView();
+  updateBadge();
+}
+
+/* 顶部工具条：标题、副标题、上次扫描 */
+const PAGE_META = {
+  home: ['概览', '今日工作概览'], tasks: ['任务', '按状态与 Agent 筛选'],
+  todos: ['待办', '跨 Agent 汇总'], reports: ['日报', '每日工作汇总 · 可搜索'],
+  space: ['文件与空间', '只读统计'],
+  config: ['监控对象', '按需启停与路径覆盖'], sched: ['扫描调度', '定时扫描规则'],
+  conn: ['Agent 接入', 'MCP 工具与客户端配置'], arch: ['系统架构', '采集 → 解析 → 索引 → 呈现'],
+  report: ['日报设置', '生成、存储与隐私'], me: ['设置与关于', '服务状态与说明'],
+  task: ['任务详情', '来自本地会话记录']
+};
+
+function syncChrome(p) {
+  const m = PAGE_META[p] || PAGE_META.home;
+  const s = summary();
+  let sub = m[1];
+  if (p === 'home') sub = '今日 ' + s.n + ' 个任务 · 覆盖 ' + AGENTS.filter((a) => a.inst).length + ' 个 Agent · ' + (state.live ? '本地服务' : (state.online ? '索引未生成' : '演示数据'));
+  else if (p === 'tasks') sub = '共 ' + TASKS.length + ' 个任务 · 中断 ' + s.intr + ' 个 · 进行中 ' + s.run + ' 个';
+  else if (p === 'todos') sub = '未完成 ' + s.pending + ' 项 · 来自助手消息清单';
+  else if (p === 'reports') sub = REPORTS.length ? REPORTS.length + ' 份日报 · ' + (REPORTS_LIVE ? '来自 data/日报' : '演示数据') : '尚无日报 · 可在任务页导出或在 CLI 生成';
+  else if (p === 'space') sub = '合计 ' + fmt(s.totalSize) + ' · 只统计不清理';
+  const t = $('#pgTitle'), sb = $('#pgSub'), st = $('#tbStamp');
+  if (t) t.textContent = m[0];
+  if (sb) sb.textContent = sub;
+  if (st) st.textContent = '上次扫描 ' + state.lastScan;
+}
+
+function updateBadge() {
+  const nt = $('#navTasks'), nd = $('#navTodos'), nr = $('#navReports');
+  if (nt) nt.textContent = TASKS.length;
+  if (nd) nd.textContent = state.todos.filter((x) => !x).length;
+  if (nr) nr.textContent = (state.reportTotal || REPORTS_DATES.length || REPORTS.length || 0);
+}
+
+function bindInline() {
+  const q = $('#q');
+  if (q) {
+    // 搜索用「回车 / 失焦」触发，不用 oninput。
+    // 原因：oninput 每敲一个字符就重建 #view，输入框被替换，中文输入法组字过程被打断（无法输入汉字）。
+    // 同时避免 IME 组字中的中间态参与过滤。
+    const runSearch = () => {
+      const v = $('#view');
+      if (!v) return;
+      v.innerHTML = viewTasks();
+      bindInline();
+      persistView();
+    };
+    q.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); state.q = e.target.value; if (state.qScope !== 'title') runDeepSearch(); else runSearch(); }
+      else if (e.key === 'Escape') { e.preventDefault(); state.q = ''; if (e.target) e.target.value = ''; runSearch(); }
+    };
+    q.onblur = (e) => {
+      // 失焦时若内容变了才重新查询，避免无谓重渲染
+      if (e.target.value !== state.q) { state.q = e.target.value; if (state.qScope !== 'title') runDeepSearch(); else runSearch(); }
+    };
+    // 组字结束后不自动查询，只提示用户按回车（保持行为可预期）
+    q.oncompositionend = () => {};
+  }
+  // 分组标题的折叠：用事件委托，避免把含引号的分组键拼进内联 onclick
+  const v = $('#view');
+  if (v && !v.__grpBound) {
+    v.__grpBound = true;
+    v.addEventListener('click', (e) => {
+      // 日报：打开某份 / 返回列表（用 data 属性，避免日期里的字符破坏内联 onclick）
+      const rp = e.target.closest('[data-report]');
+      if (rp) { e.preventDefault(); e.stopPropagation(); openReport(rp.getAttribute('data-report')); return; }
+      if (e.target.closest('[data-closereport]')) { e.preventDefault(); closeReport(); return; }
+    if (e.target.closest('[data-closeai]')) { e.preventDefault(); reportState.ai = null; reportState.aiError = ''; $('#view').innerHTML = viewReports(); return; }
+      // 人工标记 / 撤销：按钮在 <a class="trow"> 内，必须阻止跳转与冒泡
+      const mk = e.target.closest('[data-mark],[data-unmark]');
+      if (mk) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (mk.hasAttribute('data-unmark')) unmarkTaskDone(null, mk.getAttribute('data-unmark'));
+        else markTaskDone(null, mk.getAttribute('data-mark'));
+        return;
+      }
+      const h = e.target.closest('.grp-h[data-toggle]');
+      if (!h) return;
+      // 只处理「被点中的那个标题」：点内层标题时事件会冒泡，若不判断会同时切换父层与子层
+      if (!h.contains(e.target)) return;
+      // 内层标题点击后不再向上冒泡给外层
+      e.stopPropagation();
+      toggleGroup(h.getAttribute('data-toggle'));
+    });
+  }
+}
+
+/* ============ 交互 ============ */
+/* 清空过滤条件：状态 / Agent / 搜索 / 日期区间；排序与分组是展示选项，保留 */
+function clearTaskFilters() {
+  const nothing = state.filter === 'all' && state.aFilter === 'all' && state.q === '' && !state.dateFrom && !state.dateTo;
+  if (nothing) return;
+  state.filter = 'all';
+  state.aFilter = 'all';
+  state.q = '';
+  state.dateFrom = '';
+  state.dateTo = '';
+  rerenderTasks();
+  toast('已清空过滤条件');
+}
+
+/* 切换搜索范围：切到内容/思考时若有现成关键词，直接搜一次 */
+function setQScope(v) {
+  state.qScope = v === 'content' || v === 'think' ? v : 'title';
+  state.deep = null;
+  if (state.qScope !== 'title' && state.q.trim().length >= 2) { runDeepSearch(); return; }
+  $('#view').innerHTML = viewTasks();
+  bindInline();
+}
+
+function setFilter(k) { state.filter = k; $('#view').innerHTML = viewTasks(); bindInline(); persistView(); }
+function setAgentFilter(a) {
+  state.aFilter = a;
+  const h = location.hash || '';
+  $('#view').innerHTML = h.indexOf('todos') > -1 ? viewTodos() : viewTasks();
+  bindInline();
+  persistView();
+}
+function setRange(k) {
+  state.range = k;
+  persistView();
+  $('#view').innerHTML = viewHome();
+  window.scrollTo(0, 0);
+}
+
+/* 日期筛选与排序：改 state 后重渲染任务清单，保持滚动位置 */
+/* ============ 视图记忆：回到上次的页面与筛选 ============ */
+const VIEW_KEY = 'ac.h5.view';
+function persistView() {
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify({
+      v: 1,
+      route: (location.hash || '').replace(/^#\/?/, ''),
+      filter: state.filter,
+      aFilter: state.aFilter,
+      q: state.q,
+      sortKey: state.sortKey,
+      sort: state.sort,
+      dateFrom: state.dateFrom,
+      dateTo: state.dateTo,
+      groupLevels: state.groupLevels || [],
+      groupOpen: state.groupOpen || {},
+      range: state.range,
+      report: { q: reportState.q || '', from: reportState.from || '', to: reportState.to || '' }
+    }));
+  } catch (e) {}
+}
+
+/* 启动时恢复：筛选条件 + 上次停留的页面（任务详情不恢复，索引可能已重建） */
+function restoreView() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); } catch (e) { saved = null; }
+  if (!saved || saved.v !== 1) return;
+  const str = (v, fallback) => (typeof v === 'string' ? v : fallback);
+  state.filter = str(saved.filter, state.filter);
+  state.aFilter = str(saved.aFilter, state.aFilter);
+  state.q = str(saved.q, '');
+  state.sortKey = saved.sortKey === 'start' ? 'start' : 'end';
+  state.sort = saved.sort === 'asc' ? 'asc' : 'desc';
+  state.dateFrom = str(saved.dateFrom, '');
+  state.dateTo = str(saved.dateTo, '');
+  state.groupLevels = Array.isArray(saved.groupLevels) ? saved.groupLevels.slice() : [];
+  state.groupOpen = saved.groupOpen && typeof saved.groupOpen === 'object' && !Array.isArray(saved.groupOpen) ? { ...saved.groupOpen } : {};
+  if (saved.range === '7d' || saved.range === '14d' || saved.range === 'today') state.range = saved.range;
+  if (saved.report && typeof saved.report === 'object') {
+    reportState.q = str(saved.report.q, '');
+    reportState.from = str(saved.report.from, '');
+    reportState.to = str(saved.report.to, '');
+  }
+  const hash = (location.hash || '').replace(/^#\/?/, '');
+  let route = str(saved.route, '');
+  if (route.indexOf('task/') === 0) route = 'tasks';
+  if (hash === '' && route !== '') {
+    try { history.replaceState(null, '', '#/' + route); } catch (e) { /* 忽略 */ }
+  }
+}
+
+function rerenderTasks() {
+  const v = $('#view');
+  const y = window.scrollY;
+  v.innerHTML = viewTasks();
+  bindInline();
+  window.scrollTo(0, y);
+  persistView();
+}
+function setDateFrom(v) {
+  state.dateFrom = v || '';
+  // 起止颠倒时自动纠正，避免出现空结果还看不出原因
+  if (state.dateFrom && state.dateTo && state.dateFrom > state.dateTo) state.dateTo = state.dateFrom;
+  rerenderTasks();
+}
+function setDateTo(v) {
+  state.dateTo = v || '';
+  if (state.dateFrom && state.dateTo && state.dateFrom > state.dateTo) state.dateFrom = state.dateTo;
+  rerenderTasks();
+}
+function clearDate() {
+  state.dateFrom = '';
+  state.dateTo = '';
+  rerenderTasks();
+  toast('已清除日期筛选');
+}
+function setSort(k) {
+  state.sort = k === 'asc' ? 'asc' : 'desc';
+  rerenderTasks();
+  toast(state.sort === 'asc' ? '按' + (state.sortKey === 'start' ? '开始' : '截止') + '时间正序（最早在前）' : '按' + (state.sortKey === 'start' ? '开始' : '截止') + '时间倒序（最新在前）');
+}
+/* 排序维度：截止（结束）时间 / 开始时间；默认截止时间倒序 */
+function setSortKey(k) {
+  state.sortKey = k === 'start' ? 'start' : 'end';
+  rerenderTasks();
+  toast(state.sortKey === 'start' ? '已改为按开始时间排序' : '已改为按截止时间排序');
+}
+/* 排序下拉：一次同时决定维度与方向（end-desc / end-asc / start-desc / start-asc） */
+function setSortChoice(choice) {
+  const parts = String(choice || 'end-desc').split('-');
+  state.sortKey = parts[0] === 'start' ? 'start' : 'end';
+  state.sort = parts[1] === 'asc' ? 'asc' : 'desc';
+  rerenderTasks();
+  toast('排序：' + (state.sortKey === 'start' ? '开始时间' : '截止时间') + (state.sort === 'asc' ? '正序' : '倒序'));
+}
+/* 分组下拉：选中一个维度就追加一级；重复选同一维度等于移除（沿用 toggleDim） */
+function addGroupDim(dim) {
+  if (!dim) return;
+  toggleDim(dim);
+}
+
+/* 生成文件并触发下载；file:// 与 https 均可用 */
+function download(name, text) {
+  try {
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+    toast('已导出 ' + name);
+  } catch (e) { toast('导出失败：' + e.message); }
+}
+
+/* 导出用文件名与标题里的日期：取真实生成日期，不写死 */
+function todayStr() {
+  if (state.generatedAt) return state.generatedAt.slice(0, 10);
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function exportReport() {
+  const s = summary();
+  const day = todayStr();
+  const rows = TASKS.map((t) =>
+    '| ' + t.a + ' | ' + String(t.title).replace(/\|/g, '\\|') + ' | ' + t.proj + ' | ' + t.s + '–' + (t.e || '进行中') + ' | ' +
+    hm(t.act) + ' | ' + STL[t.st] + ' | ' + fmt(t.sp) + ' |').join('\n');
+  const todo = TODOS.map((t, i) => '- [' + (state.todos[i] ? 'x' : ' ') + '] ' + t.t + '（' + t.a + ' · ' + t.p + '）').join('\n');
+  const dist = byAgent().map((r) => '- ' + r.name + '：' + r.n + ' 个任务 · 活跃 ' + hm(r.act)).join('\n');
+  const md = '# AgentCenter 日报 · ' + day + '\n\n' +
+    '> 覆盖 ' + AGENTS.filter((a) => a.inst).length + ' 个 Agent · 任务 ' + s.n + ' 个 · 活跃 ' + hm(s.act) + ' · 墙钟 ' + hm(s.wall) + ' · 占用 ' + fmt(s.totalSize) + '\n\n' +
+    '## 今日任务\n\n| Agent | 任务 | 项目 | 起止 | 活跃 | 状态 | 空间 |\n|---|---|---|---|---|---|---|\n' + rows + '\n\n' +
+    '## 待办\n\n' + (todo || '（无）') + '\n\n## 各 Agent 分布\n\n' + dist + '\n\n' +
+    '## 说明\n\n数据由 AgentCenter 只读扫描本地会话记录生成，中间文件仅统计不删除。\n';
+  download('AgentCenter日报-' + day + '.md', md);
+}
+
+function exportTodos() {
+  const day = todayStr();
+  const md = '# 待办清单 · ' + day + '\n\n' + TODOS.map((t, i) =>
+    '- [' + (state.todos[i] ? 'x' : ' ') + '] ' + t.t + '\n  - 来源：' + t.a + ' · 项目：' + t.p).join('\n') + '\n';
+  download('待办清单-' + day + '.md', md);
+}
+
+function exportFiles() {
+  const day = todayStr();
+  const md = '# 中间文件清单 · ' + day + '\n\n| 路径 | 说明 | 来源 | 大小 |\n|---|---|---|---|\n' +
+    FILES.slice().sort((a, b) => b.sz - a.sz).map((f) =>
+      '| ' + f.p + ' | ' + f.n + ' | ' + f.a + ' | ' + fmt(f.sz) + ' |').join('\n') +
+    '\n\n优先级：≥ 200 MB 高、≥ 80 MB 中，其余低。清理需人工确认，AgentCenter 不会自动删除。\n';
+  download('中间文件清单-' + day + '.md', md);
+}
+
+/* 待办勾选按 id 持久化（ac.h5.todos.map）：服务端待办数量变化后仍能恢复用户的选择。
+   兼容旧格式（纯数组）——按顺序回填，避免老用户丢失已勾选项。 */
+function readTodoMap() {
+  try {
+    const raw = localStorage.getItem('ac.h5.todos');
+    if (!raw) return {};
+    const j = JSON.parse(raw);
+    if (Array.isArray(j)) {
+      const map = {};
+      TODOS.forEach((x, i) => { if (j[i] !== undefined) map[x.id || ('idx' + i)] = !!j[i]; });
+      return map;
+    }
+    return (j && typeof j === 'object') ? j : {};
+  } catch (e) { return {}; }
+}
+
+function saveTodoMap() {
+  try {
+    const map = {};
+    TODOS.forEach((x, i) => { map[x.id || ('idx' + i)] = !!state.todos[i]; });
+    localStorage.setItem('ac.h5.todos', JSON.stringify(map));
+  } catch (e) {}
+}
+
+function toggleTodo(i) {
+  state.todos[i] = !state.todos[i];
+  saveTodoMap();
+  const v = $('#view');
+  if ((location.hash || '').indexOf('todos') > -1) { v.innerHTML = viewTodos(); updateBadge(); }
+  else { v.innerHTML = viewHome(); updateBadge(); }
+  toast(state.todos[i] ? '已标记完成（仅本地记录）' : '已恢复为未完成');
+}
+
+function toggleAuto() {
+  state.auto = !state.auto;
+  try { localStorage.setItem('ac.h5.auto', state.auto ? '1' : '0'); } catch (e) {}
+  $('#view').innerHTML = viewMe();
+  toast(state.auto ? '已开启（原型：由本机脚本实际注册）' : '已关闭');
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 1900);
+}
+
+function doRefresh(fromBtn) {
+  // 在 DSH 插件面板里：HTTP 侧不开放扫描，交给宿主在进程内跑一轮，再整体重读。
+  if (AC_EMBEDDED) { scanViaHost(); return; }
+  const btn = $('#btnRefresh');
+  if (btn) btn.classList.add('spin');
+  const done = async () => {
+    if (btn) btn.classList.remove('spin');
+    const ok = await loadSummary();
+    if (ok) {
+      const d = new Date();
+      state.lastScan = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+      route();
+      toast('已重新读取索引：' + TASKS.length + ' 个任务');
+    } else {
+      toast('未连接本地服务或索引尚未生成，仍为演示数据');
+    }
+  };
+  setTimeout(done, 500);
+}
+
+/* 嵌在 DSH 面板里时：请宿主在进程内扫一轮，然后整体重读（健康检查 + 索引 + 扫描历史 + 日报），
+   左下角的「上次扫描」随 probe() 一起刷新。 */
+async function scanViaHost() {
+  const btn = $('#btnRefresh');
+  const html = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('spin');
+    btn.textContent = '正在扫描…';
+  }
+  let r = null;
+  try {
+    r = await hostRequest('scan', {});
+  } catch (e) {
+    r = { ok: false, error: e.message };
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('spin');
+      btn.innerHTML = html;
+    }
+  }
+  const data = (r && r.data) || {};
+  if (!r || !r.ok || data.ok !== true) {
+    toast('扫描失败：' + ((r && (r.error || data.error)) || '未知错误'));
+    return;
+  }
+  if (data.scannedAt) state.lastScan = data.scannedAt;
+  await probe();
+  toast('已扫描：' + TASKS.length + ' 个任务' + (data.scannedAt ? ' · ' + data.scannedAt : ''));
+}
+
+/* ============ 刷新（桌面端由侧栏「立即扫描」触发，不再做下拉手势） ============ */
+
+/* ============ 本地服务探测与数据加载 ============ */
+/* ============ 离线兜底（仅在连不上本地服务时使用） ============ */
+/* 页面本身是「真实数据的只读视图」：所有列表默认空，由 /api/* 填充。
+   但直接用浏览器打开 h5/index.html（file://）时必须仍能评审，故提供一份
+   结构真实、内容明确标注的示例数据，并在顶栏写清「演示数据」。 */
+function ensureOfflineFallback() {
+  if (TASKS.length || AGENTS.length) return;   // 已有真实数据，不覆盖
+  state.live = false;
+
+  const AG = [
+    ['workbuddy', 'WorkBuddy', 'JSONL', 41, 2140, 'blue'],
+    ['codebuddy', 'CodeBuddy', 'SQLite', 63, 860, 'teal'],
+    ['atomcode', 'AtomCode', 'JSONL', 18, 412, 'purple'],
+    ['opencode', 'OpenCode', 'SQLite', 9, 640, 'green'],
+    ['deepseek', 'DeepSeek Harness', 'zstd JSONL', 12, 318, 'coral'],
+    ['qwen', '千问工作台', 'Electron 存储', 4, 96, 'amber'],
+    ['trae', 'Trae', 'SQLite', 0, 0, 'purple'],
+    ['qoder', 'Qoder', 'JSONL', 0, 0, 'teal'],
+    ['zcode', 'zcode', 'JSONL', 0, 0, 'blue'],
+    ['codex', 'Codex CLI', 'JSONL', 0, 0, 'green'],
+    ['claudecode', 'Claude Code', 'JSONL', 0, 0, 'coral'],
+    ['doubao', '豆包工作台', 'Electron 存储', 0, 0, 'teal']
+  ];
+  AGENTS.length = 0;
+  AGENTS.push(...AG.map(([id, name, kind, sess, size, tone]) => ({
+    id, name, kind, sess, size, tone,
+    inst: sess > 0, on: sess > 0,
+    path: AGPATH[id] || ''
+  })));
+
+  const day = (state.generatedAt || new Date().toISOString()).slice(0, 10);
+  const T = [
+    ['workbuddy', 'WorkBuddy', '搭建数据访问层的多数据库适配', 'order-center', '09:12', '11:48', 156, 118, 'done', 64, 31, 186, 7, 0],
+    ['codebuddy', 'CodeBuddy', '排查启动脚本中文乱码导致的启动失败', 'order-batch', '10:05', '10:22', 17, 12, 'run', 22, 9, 12, 2, 1],
+    ['atomcode', 'AtomCode', '重构 Obsidian 规划目录为年/月层级', 'knowledge-base', '11:30', '12:41', 71, 54, 'done', 48, 26, 96, 214, 0],
+    ['opencode', 'OpenCode', '评估 ARM 架构容器化可行性', 'infra-eval', '13:02', '13:35', 33, 28, 'int', 18, 7, 44, 3, 3],
+    ['deepseek', 'DeepSeek Harness', '算法推导与公式排版', 'math-research', '15:20', '16:02', 42, 39, 'done', 35, 4, 22, 2, 1]
+  ];
+  TASKS.length = 0;
+  TASKS.push(...T.map(([aid, an, title, proj, s0, e0, wall, act, st, msg, tc, sp, files, todo], i) => ({
+    id: 'demo' + (i + 1),
+    a: an, aId: aid, title, proj,
+    s: s0, e: e0, sd: day, ed: day,
+    ts: Date.parse(day + 'T' + s0 + ':00') || 0,
+    te: Date.parse(day + 'T' + (e0 || s0) + ':00') || 0,
+    wall, act, st, msg, tc, sp, files, todo,
+    reason: st === 'int' ? '工具调用连续失败后中断' : st === 'run' ? '会话仍在写入' : '助手正常收尾',
+    dir: '~/projects/' + proj,
+    src: (AGPATH[aid] || '') + '/' + proj,
+    sid: 'demo-session-' + (i + 1),
+    preview: ''
+  })));
+
+  TODOS.length = 0;
+  TODOS.push(
+    { id: 'demo-td1', t: '补齐被中断任务遗留的三项验证', a: 'OpenCode', p: 'infra-eval', done: false },
+    { id: 'demo-td2', t: '为生成的接口文档补充鉴权失败重试说明', a: '千问工作台', p: 'api-docs', done: false },
+    { id: 'demo-td3', t: '合并旧路径下的 wiki-link', a: 'AtomCode', p: 'knowledge-base', done: true }
+  );
+  state.todos = TODOS.map((x) => !!x.done);
+
+  FILES.length = 0;
+  FILES.push(
+    { p: AGPATH.workbuddy + '/file-history', n: 'WorkBuddy 文件历史快照', a: 'WorkBuddy', sz: 412, kind: '回收' },
+    { p: AGPATH.workbuddy + '/blobs', n: 'WorkBuddy 二进制产物', a: 'WorkBuddy', sz: 268, kind: '回收' },
+    { p: AGPATH.atomcode + '/image-cache', n: 'AtomCode 图片缓存', a: 'AtomCode', sz: 188, kind: '回收' }
+  );
+
+  TREND.length = 0;
+  const base = Date.parse(day) || Date.now();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(base - i * 86400000);
+    const pad = (n) => String(n).padStart(2, '0');
+    TREND.push({ d: d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()), n: (i % 4) + 1, act: 40 + i * 12 });
+  }
+
+  SCANS.length = 0;
+  SCANS_LIVE = false;
+  state.reportTotal = 0;
+}
+
+async function probe() {
+  // file:// 下没有服务可连，直接进入演示态，避免控制台报 CORS/网络错误
+  if (!location.protocol.startsWith('http')) {
+    state.online = false;
+    ensureOfflineFallback();
+    const lv = $('#live'); if (lv) lv.classList.remove('on');
+    const ab = $('#abSub'); if (ab) ab.textContent = '本地 HTML 模式 · 演示数据';
+    route();
+    return;
+  }
+  try {
+    const r = await fetch('api/health', { cache: 'no-store' });
+    if (!r.ok) throw new Error('bad status');
+    const j = await r.json();
+    state.online = true;
+    if (j.lastScan) state.lastScan = j.lastScan;
+    if (j.dataDir) state.dataDir = j.dataDir;
+    if (Number(j.port) > 0) state.servicePort = Number(j.port);
+    if (j.generatedAt) state.generatedAt = j.generatedAt;
+    // 环境能力：旧版 Node 缺 zstd 时，DSH 会话读不出来——把原因留在页面上，而不是静默少数据
+    state.zstd = j.zstd !== false;
+    state.nodeNotice = typeof j.notice === 'string' ? j.notice : '';
+    const lv = $('#live'); if (lv) lv.classList.add('on');
+    const ab = $('#abSub');
+    if (ab) ab.textContent = '本地服务已连接 · 上次扫描 ' + state.lastScan;
+  } catch (e) {
+    state.online = false;
+    ensureOfflineFallback();
+    const lv = $('#live'); if (lv) lv.classList.remove('on');
+    const ab = $('#abSub'); if (ab) ab.textContent = '演示数据 · 上次扫描 ' + state.lastScan;
+    route();
+    return;
+  }
+  // 服务可用时读取真实索引与扫描历史；索引缺失则保持演示数据并明确标注
+  const ok = await loadSummary();
+  await loadScans();   // 扫描历史与索引互不依赖，独立加载
+  await loadReports(); // 日报列表（同样独立）
+  if (!ok) {
+    ensureOfflineFallback();
+    const ab = $('#abSub');
+    if (ab) ab.textContent = '本地服务已连接 · 索引尚未生成（演示数据）';
+    route();
+    return;
+  }
+  const ab = $('#abSub');
+  if (ab) ab.textContent = '本地服务已连接 · 上次扫描 ' + state.lastScan;
+  route();
+}
+
+/* ============ PWA ============ */
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvent = e; });
+function installPwa() {
+  if (installEvent) { installEvent.prompt(); installEvent = null; return; }
+  toast('请用浏览器菜单「安装应用 / 添加到主屏幕」');
+}
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+/* ============ 启动 ============ */
+try {
+  // 待办勾选：按 id 恢复（兼容旧的纯数组格式），不再因长度不一致而丢弃
+  const savedMap = readTodoMap();
+  if (Object.keys(savedMap).length) {
+    state.todos = TODOS.map((x, i) => {
+      const v = savedMap[x.id || ('idx' + i)];
+      return v === undefined ? !!state.todos[i] : !!v;
+    });
+  }
+  state.auto = localStorage.getItem('ac.h5.auto') === '1';
+  const sa = JSON.parse(localStorage.getItem('ac.h5.agents') || 'null');
+  if (sa) AGENTS.forEach((a) => { const c = sa[a.id]; if (c) { a.on = !!c.on; if (c.path) a.path = c.path; } });
+} catch (e) {}
+
+$('#btnRefresh').onclick = () => doRefresh(true);
+window.addEventListener('hashchange', route);
+
+/* ============ 顶部菜单横向滚动：超出可视区时给出左右箭头 ============ */
+function scrollNav(direction) {
+  const nav = $('#nav');
+  if (!nav) return;
+  const step = Math.max(120, Math.round(nav.clientWidth * 0.7));
+  nav.scrollBy({ left: direction * step, behavior: 'smooth' });
+  setTimeout(updateNavArrows, 340);
+}
+
+/* 右箭头：只要菜单还能往右滚就常显（滚到头变灰，避免隐藏/显示的宽度抖动）；
+   左箭头：滚出去以后才出现，初始状态不摆一个点不动的灰键。 */
+function updateNavArrows() {
+  const nav = $('#nav');
+  const left = $('#navL');
+  const right = $('#navR');
+  if (!nav || !left || !right) return;
+  const max = nav.scrollWidth - nav.clientWidth;
+  const scrollable = max > 2;
+  const atLeft = nav.scrollLeft <= 2;
+  const atRight = nav.scrollLeft >= max - 2;
+  left.dataset.show = scrollable && !atLeft ? '1' : '0';
+  right.dataset.show = scrollable ? '1' : '0';
+  left.disabled = atLeft;
+  right.disabled = atRight;
+}
+
+$('#nav').addEventListener('scroll', updateNavArrows, { passive: true });
+window.addEventListener('resize', updateNavArrows);
+
+// 任务表列宽：恢复上次拖动的宽度，并挂上拖动监听（表格会随筛选重渲染，监听挂在 document 上）
+state.colW = loadCols();
+bindColumnResize();
+
+// 菜单宽度取决于字体是否已就绪，等一拍再判定要不要显示箭头
+updateNavArrows();
+setTimeout(updateNavArrows, 120);
+setTimeout(updateNavArrows, 600);
+
+// 启动顺序：先探测数据源，再由 probe() 统一渲染首屏。
+// 否则会先用空数据渲染一屏「演示数据」，等接口返回后又被替换，用户会看到闪动与错误标注。
+restoreView();
+updateBadge();
+probe();
+</script>
+</body>
+</html>

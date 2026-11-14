@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentCenter 原型 · Agent 任务中心</title>
+<style>
+:root{
+  --bg:#F7F7F5; --surface:#FFFFFF; --surface2:#F1EFE8;
+  --line:rgba(0,0,0,.10); --line2:rgba(0,0,0,.18);
+  --tx:#1F1F1E; --tx2:#5F5E5A; --tx3:#888780;
+  --blue:#185FA5; --blue-bg:#E6F1FB;
+  --green:#3B6D11; --green-bg:#EAF3DE;
+  --amber:#854F0B; --amber-bg:#FAEEDA;
+  --red:#A32D2D; --red-bg:#FCEBEB;
+  --purple:#534AB7; --purple-bg:#EEEDFE;
+  --teal:#0F6E56; --teal-bg:#E1F5EE;
+  --coral:#993C1D; --coral-bg:#FAECE7;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;font-size:13px;cursor:pointer}
+a{cursor:pointer}
+.shell{display:flex;min-height:100vh}
+.rail{width:212px;flex:0 0 212px;background:var(--surface);border-right:.5px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 8px 16px}
+.logo{width:28px;height:28px;border-radius:7px;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px}
+.brand h1{font-size:14px;font-weight:500}
+.brand p{font-size:11px;color:var(--tx3)}
+.navlabel{font-size:11px;color:var(--tx3);padding:14px 8px 5px}
+.nav{padding:7px 10px;border-radius:7px;color:var(--tx2);display:flex;align-items:center;gap:9px;border:.5px solid transparent}
+.nav:hover{background:var(--surface2)}
+.nav.on{background:var(--blue-bg);color:var(--blue);border-color:rgba(24,95,165,.22);font-weight:500}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;flex:0 0 6px}
+.nav.on .dot{opacity:1}
+.nav .count{margin-left:auto;font-size:11px;background:var(--surface2);padding:0 6px;border-radius:9px;color:var(--tx2)}
+.nav.on .count{background:#fff;color:var(--blue)}
+.main{flex:1;min-width:0;padding:20px 26px 60px;max-width:1500px}
+.top{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.top h2{font-size:19px;font-weight:500}
+.top p{font-size:12px;color:var(--tx3);margin-top:2px}
+.spacer{flex:1}
+.seg{display:flex;background:var(--surface);border:.5px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 12px;color:var(--tx2)}
+.seg button.on{background:var(--blue);color:#fff}
+.btn{border:.5px solid var(--line2);background:var(--surface);border-radius:8px;padding:6px 13px;color:var(--tx)}
+.btn:hover{background:var(--surface2)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.pri:hover{background:#12507f}
+.sel{border:.5px solid var(--line2);background:var(--surface);border-radius:8px;padding:6px 10px;color:var(--tx)}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--surface2);border-radius:var(--r);padding:13px 15px}
+.kpi .l{font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:6px}
+.kpi .v{font-size:23px;font-weight:500;margin-top:3px;letter-spacing:-.4px}
+.kpi .s{font-size:11px;color:var(--tx3);margin-top:1px}
+.kpi.acc .v{color:var(--blue)} .kpi.warn .v{color:var(--amber)} .kpi.bad .v{color:var(--red)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2);color:var(--tx2);border:.5px solid var(--line)}
+.chip.blue{background:var(--blue-bg);color:var(--blue);border-color:rgba(24,95,165,.2)}
+.chip.green{background:var(--green-bg);color:var(--green);border-color:rgba(59,109,17,.2)}
+.chip.amber{background:var(--amber-bg);color:var(--amber);border-color:rgba(133,79,11,.2)}
+.chip.red{background:var(--red-bg);color:var(--red);border-color:rgba(163,45,45,.2)}
+.chip.purple{background:var(--purple-bg);color:var(--purple);border-color:rgba(83,74,183,.2)}
+.card{background:var(--surface);border:.5px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+.card h3{font-size:13px;font-weight:500;margin-bottom:2px}
+.card .sub{font-size:11.5px;color:var(--tx3);margin-bottom:13px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--tx2);margin-top:10px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{font-size:11.5px;font-weight:500;color:var(--tx3);text-align:left;padding:0 8px 8px;border-bottom:.5px solid var(--line)}
+td{padding:9px 8px;border-bottom:.5px solid var(--line);font-size:12.5px;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface2)}
+tbody tr.clk{cursor:pointer}
+.ttl{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub2{font-size:11px;color:var(--tx3);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;margin-top:3px}
+.bar>i{display:block;height:100%;border-radius:3px}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.st.done{background:var(--green-bg);color:var(--green)}
+.st.run{background:var(--blue-bg);color:var(--blue)}
+.st.int{background:var(--red-bg);color:var(--red)}
+.st.wait{background:var(--amber-bg);color:var(--amber)}
+.st.i{width:5px;height:5px;border-radius:50%;background:currentColor}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.todo{display:flex;gap:9px;padding:8px 0;border-bottom:.5px solid var(--line);align-items:flex-start}
+.todo:last-child{border-bottom:0}
+.cbx{width:14px;height:14px;border-radius:4px;border:1px solid var(--line2);margin-top:2px;flex:0 0 14px;background:var(--surface)}
+.cbx.on{background:var(--green);border-color:var(--green);position:relative}
+.cbx.on:after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 1.6px 1.6px 0;transform:rotate(42deg)}
+.todo p{font-size:12.5px}
+.todo .m{font-size:11px;color:var(--tx3);margin-top:1px}
+.todo.done p{text-decoration:line-through;color:var(--tx3)}
+.hr{height:.5px;background:var(--line);margin:13px 0}
+.tl{position:relative;padding-left:20px}
+.tl:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.ev{position:relative;padding:0 0 15px}
+.ev:before{content:"";position:absolute;left:-18px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--surface);border:1.5px solid var(--line2)}
+.ev.u:before{border-color:var(--blue)} .ev.a:before{border-color:var(--teal)} .ev.t:before{border-color:var(--amber)}
+.ev .h{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+.ev .who{font-size:12px;font-weight:500}
+.ev .tm{font-size:11px;color:var(--tx3)}
+.ev .bd{font-size:12.5px;color:var(--tx2);margin-top:3px}
+.tool{background:var(--surface2);border-radius:7px;padding:8px 10px;margin-top:6px;font-size:11.5px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--tx2);overflow:auto;white-space:pre;line-height:1.75}
+.kv{display:grid;grid-template-columns:88px minmax(0,1fr);gap:7px 12px;font-size:12.5px}
+.kv dt{color:var(--tx3)}
+.kv dd{color:var(--tx)}
+.setrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:.5px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.sw{width:32px;height:18px;border-radius:10px;background:var(--line2);position:relative;flex:0 0 32px;transition:background .12s}
+.sw:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .12s}
+.sw.on{background:var(--blue)}
+.sw.on:after{left:16px}
+.pthln{display:block;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10.5px;color:var(--tx3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.path{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;color:var(--tx2);background:var(--surface2);padding:2px 7px;border-radius:5px;display:inline-block;margin-top:3px;word-break:break-all}
+.note{font-size:11.5px;color:var(--tx3);background:var(--surface2);border-left:2px solid var(--line2);padding:8px 11px;border-radius:0 6px 6px 0;margin-top:11px}
+.hidden{display:none}
+.back{border:0;background:transparent;color:var(--blue);padding:0;font-size:12.5px;margin-bottom:11px}
+.empty{color:var(--tx3);font-size:12.5px;padding:22px;text-align:center}
+.toast{position:absolute;top:14px;right:0;background:var(--surface);border:.5px solid var(--line2);border-radius:8px;padding:8px 14px;font-size:12.5px}
+.rel{position:relative}
+/* ---- 断点基于「视图容器」而非视口：Obsidian 分屏时窗口仍很宽，媒体查询会失效 ---- */
+.main{container-type:inline-size}
+@container (max-width:1100px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid2,.cols{grid-template-columns:minmax(0,1fr)}
+}
+@container (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .card{overflow-x:auto}
+  table{min-width:640px}
+}
+@container (max-width:620px){
+  .top h2{font-size:17px}
+  .seg button{padding:6px 9px;font-size:12px}
+}
+/* ---- 导航在窄窗口下退化为顶部横条（导航不在视图容器内，只能用视口断点）---- */
+@media(max-width:900px){
+  .shell{flex-direction:column}
+  .rail{width:100%;flex:0 0 auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:.5px solid var(--line);padding:8px 10px;align-items:center;gap:3px}
+  .brand{padding:0 8px 0 0;flex:0 0 auto}
+  .brand>div:last-child{display:none}
+  .navlabel{display:none}
+  .nav{white-space:nowrap;padding:6px 9px;font-size:12px}
+  .nav .count{display:none}
+  .rail>div[style*="flex:1"]{display:none}
+  .main{padding:14px 14px 48px;max-width:none}
+}
+/* ---- 分屏预览：模拟主区域被压缩到 480px ---- */
+body.narrow{background:var(--surface2)}
+body.narrow .shell{max-width:480px;margin:0 auto;flex-direction:column;border-left:.5px solid var(--line);border-right:.5px solid var(--line);background:var(--bg);min-height:100vh}
+body.narrow .rail{width:100%;flex:0 0 auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:.5px solid var(--line);padding:8px 10px;align-items:center;gap:3px}
+body.narrow .brand{padding:0 8px 0 0;flex:0 0 auto}
+body.narrow .brand>div:last-child{display:none}
+body.narrow .navlabel{display:none}
+body.narrow .nav{white-space:nowrap;padding:6px 9px;font-size:12px}
+body.narrow .nav .count{display:none}
+body.narrow .rail>div[style*="flex:1"]{display:none}
+body.narrow .main{padding:14px 14px 48px;max-width:none}
+/* ---- 原型预览控制条 ---- */
+.devbar{position:fixed;right:14px;bottom:14px;z-index:60;display:flex;align-items:center;gap:5px;background:var(--surface);border:.5px solid var(--line2);border-radius:10px;padding:5px 7px 5px 9px;font-size:11px;color:var(--tx3);box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.devbar button{border:0;background:transparent;font-size:11px;padding:3px 7px;border-radius:6px;color:var(--tx2)}
+.devbar button.on{background:var(--blue-bg);color:var(--blue);font-weight:500}
+.devbar a{color:var(--blue);font-size:11px;padding-left:7px;margin-left:3px;border-left:.5px solid var(--line)}
+@media(max-width:560px){.devbar{right:8px;bottom:8px;font-size:10px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="logo">AC</div>
+      <div><h1>AgentCenter</h1><p>Agent 任务中心 · 主视图</p></div>
+    </div>
+    <div class="navlabel">工作台</div>
+    <div class="nav on" data-v="dash"><span class="dot"></span>仪表盘</div>
+    <div class="nav" data-v="tasks"><span class="dot"></span>任务列表<span class="count" id="navTasks">128</span></div>
+    <div class="nav" data-v="todos"><span class="dot"></span>待办事项<span class="count" id="navTodos">4</span></div>
+    <div class="nav" data-v="files"><span class="dot"></span>文件与空间</div>
+    <div class="nav" data-v="arch"><span class="dot"></span>系统架构</div>
+    <div class="navlabel">配置</div>
+    <div class="nav" data-v="agents"><span class="dot"></span>Agent 管理</div>
+    <div class="nav" data-v="sched"><span class="dot"></span>扫描调度</div>
+    <div class="nav" data-v="conn"><span class="dot"></span>Agent 接入</div>
+    <div style="flex:1"></div>
+    <div class="nav" data-v="set"><span class="dot"></span>设置</div>
+  </aside>
+  <main class="main rel" id="main"></main>
+</div>
+<div class="devbar">
+  <span>原型预览</span>
+  <button data-w="wide" class="on" onclick="vw('wide',this)">主视图</button>
+  <button data-w="narrow" onclick="vw('narrow',this)">分屏 480</button>
+  <a href="../h5/index.html" target="_blank" rel="noopener">独立 H5 ›</a>
+</div>
+<script>
+const A=[
+ {id:'workbuddy',name:'WorkBuddy',inst:true,ver:'5.8.0',path:'C:\\Users\\dev\\.workbuddy\\projects',sess:41,size:2140},
+ {id:'codebuddy',name:'CodeBuddy',inst:true,ver:'2.4.1',path:'C:\\Users\\dev\\.codebuddy',sess:63,size:860},
+ {id:'atomcode',name:'AtomCode',inst:true,ver:'0.9.7',path:'C:\\Users\\dev\\.atomcode\\sessions',sess:18,size:412},
+ {id:'opencode',name:'OpenCode',inst:true,ver:'0.6.2',path:'C:\\Users\\dev\\.local\\share\\opencode',sess:9,size:640},
+ {id:'deepseek',name:'DeepSeek 桌面版',inst:true,ver:'—',path:'C:\\Users\\dev\\AppData\\Roaming\\@deepseek-ai\\dsh-desktop',sess:12,size:318},
+ {id:'qwen',name:'千问工作台',inst:true,ver:'—',path:'C:\\Users\\dev\\AppData\\Roaming\\Tongyi',sess:4,size:96},
+ {id:'trae',name:'Trae',inst:false,path:'C:\\Users\\dev\\AppData\\Roaming\\Trae\\User\\globalStorage',sess:0,size:0},
+ {id:'zcode',name:'zcode',inst:false,path:'C:\\Users\\dev\\.zcode\\sessions',sess:0,size:0},
+ {id:'codex',name:'Codex CLI',inst:false,path:'C:\\Users\\dev\\.codex\\sessions',sess:0,size:0},
+ {id:'claudecode',name:'Claude Code',inst:false,path:'C:\\Users\\dev\\.claude\\projects',sess:0,size:0},
+ {id:'doubao',name:'豆包工作台',inst:false,path:'C:\\Users\\dev\\AppData\\Roaming\\Bytedance\\Doubao',sess:0,size:0}
+];
+const T=[
+ {id:'t1',a:'WorkBuddy',aid:'workbuddy',title:'搭建 order-center 数据访问层多数据库适配',proj:'order-center',s:'09:12',e:'11:48',wall:'2小时36分',act:'1小时58分',st:'done',stt:'已完成',msg:64,tc:31,sp:186,files:7,todo:0,reason:'助手正常收尾，31 次工具调用均成功'},
+ {id:'t2',a:'CodeBuddy',aid:'codebuddy',title:'排查 start.bat 中文乱码导致的启动失败',proj:'order-batch',s:'10:05',e:'10:22',wall:'17分钟',act:'12分钟',st:'run',stt:'进行中',msg:22,tc:9,sp:12,files:2,todo:1,reason:'心跳 12 秒前更新'},
+ {id:'t3',a:'AtomCode',aid:'atomcode',title:'重构 Obsidian 规划及跟踪目录为年/月层级',proj:'knowledge-base',s:'11:30',e:'12:41',wall:'1小时11分',act:'54分钟',st:'done',stt:'已完成',msg:48,tc:26,sp:96,files:214,todo:0,reason:'助手正常收尾'},
+ {id:'t4',a:'OpenCode',aid:'opencode',title:'评估 ARM 架构容器化在国产芯片上的可行性',proj:'infra-eval',s:'13:02',e:'13:35',wall:'33分钟',act:'28分钟',st:'int',stt:'已中断',msg:18,tc:7,sp:44,files:3,todo:3,reason:'工具 Bash 连续失败 3 次后中断'},
+ {id:'t5',a:'WorkBuddy',aid:'workbuddy',title:'生成车辆保养记录与费用分析表',proj:'personal',s:'14:10',e:'14:38',wall:'28分钟',act:'24分钟',st:'wait',stt:'等待确认',msg:26,tc:12,sp:38,files:4,todo:2,reason:'末尾提问等待用户确认里程数据'},
+ {id:'t6',a:'DeepSeek 桌面版',aid:'deepseek',title:'正整数乘积拆分问题算法推导',proj:'math-research',s:'15:20',e:'16:02',wall:'42分钟',act:'39分钟',st:'done',stt:'已完成',msg:35,tc:4,sp:22,files:2,todo:1,reason:'助手正常收尾'},
+ {id:'t7',a:'CodeBuddy',aid:'codebuddy',title:'D 盘空间分析与清理优先级排序',proj:'disk-cleanup',s:'08:15',e:'08:58',wall:'43分钟',act:'36分钟',st:'done',stt:'已完成',msg:41,tc:19,sp:8,files:1,todo:0,reason:'助手正常收尾'},
+ {id:'t8',a:'千问工作台',aid:'qwen',title:'编写接口文档说明与调用示例',proj:'api-docs',s:'16:20',e:null,wall:'进行中',act:'12分钟',st:'run',stt:'进行中',msg:9,tc:3,sp:5,files:0,todo:2,reason:'最近一次写入 40 秒前'},
+ {id:'t9',a:'WorkBuddy',aid:'workbuddy',title:'二手平台闲置商品文案撰写',proj:'personal',s:'17:05',e:null,wall:'进行中',act:'8分钟',st:'run',stt:'进行中',msg:11,tc:2,sp:3,files:1,todo:1,reason:'最近一次写入 25 秒前'}
+];
+/* 任务物理路径：dir 工作目录 / src 会话记录源文件 */
+/* Windows 路径按段拼接，避免源码里的反斜杠转义出错 */
+const WIN=(...seg)=>seg.join('\\');
+/* 路径按分隔符换行，避免从词中间劈开 */
+const bp=(v)=>String(v||'—').split('\\').join('\\'+String.fromCharCode(8203));
+const PATHS={
+ t1:{dir:WIN('E:','Workspace','projects','order-center'),src:WIN('C:','Users','dev','.workbuddy','projects','order-center','af5b5438.jsonl')},
+ t2:{dir:WIN('E:','Workspace','projects','order-batch'),src:WIN('C:','Users','dev','.codebuddy','projects','order-batch','c7d1e0a2.jsonl')},
+ t3:{dir:WIN('D:','Obsidian','vault','knowledge-base'),src:WIN('C:','Users','dev','.atomcode','sessions','2026-10-29','kb-reorg-7f31.jsonl')},
+ t4:{dir:WIN('E:','Workspace','projects','infra-eval'),src:WIN('C:','Users','dev','.local','share','opencode','opencode.db')+'#session=ses_8c21'},
+ t5:{dir:WIN('D:','Users','dev','Documents','personal'),src:WIN('C:','Users','dev','.workbuddy','projects','personal','3f9a1b7e.jsonl')},
+ t6:{dir:WIN('D:','Users','dev','Documents','math-research'),src:WIN('C:','Users','dev','AppData','Roaming','@deepseek-ai','dsh-desktop','Local Storage','leveldb')},
+ t7:{dir:WIN('C:','Users','dev','AppData','Local','Temp','disk-cleanup'),src:WIN('C:','Users','dev','.codebuddy','projects','disk-cleanup','a1f2c9d4.jsonl')},
+ t8:{dir:WIN('E:','Workspace','projects','order-api-docs'),src:WIN('C:','Users','dev','AppData','Roaming','Tongyi','Local Storage','leveldb')},
+ t9:{dir:WIN('D:','Users','dev','Documents','personal','listing-copy'),src:WIN('C:','Users','dev','.workbuddy','projects','personal','8b2e4d10.jsonl')}
+};
+T.forEach(t=>{const q=PATHS[t.id];if(q){t.dir=q.dir;t.src=q.src;}});
+function midPath(p,n){n=n||46;if(!p||p.length<=n)return p;const head=13,tail=n-head-1;return p.slice(0,head)+'…'+p.slice(p.length-tail);}
+
+const TODOS=[
+ {t:'补齐 ARM 容器化评估中被 Bash 失败打断的三项验证',a:'OpenCode',p:'infra-eval',done:false},
+ {t:'确认保养里程区间与自费/保险券分摊比例',a:'WorkBuddy',p:'personal',done:false},
+ {t:'为千问生成的接口文档补充鉴权失败重试说明',a:'千问工作台',p:'api-docs',done:false},
+ {t:'把 order-center 数据访问层测试用例迁移到 Testcontainers',a:'CodeBuddy',p:'order-center',done:false},
+ {t:'合并年/月目录下的 Obsidian wiki-link 旧路径',a:'AtomCode',p:'knowledge-base',done:true},
+ {t:'整理 D 盘清理优先级清单并人工确认删除范围',a:'CodeBuddy',p:'disk-cleanup',done:true}
+];
+const FILES=[
+ {p:'C:\\Users\\dev\\.workbuddy\\file-history',n:'WorkBuddy 文件历史快照',a:'WorkBuddy',sz:412,kind:'可回收'},
+ {p:'C:\\Users\\dev\\.workbuddy\\blobs',n:'WorkBuddy 二进制产物',a:'WorkBuddy',sz:268,kind:'可回收'},
+ {p:'C:\\Users\\dev\\.atomcode\\image-cache',n:'AtomCode 图片缓存',a:'AtomCode',sz:188,kind:'可回收'},
+ {p:'C:\\Users\\dev\\.local\\share\\opencode\\tool-output',n:'OpenCode 工具原始输出',a:'OpenCode',sz:142,kind:'可回收'},
+ {p:'C:\\Users\\dev\\.local\\share\\opencode\\snapshot',n:'OpenCode 文件快照',a:'OpenCode',sz:96,kind:'可回收'},
+ {p:'C:\\Users\\dev\\.atomcode\\datalog',n:'AtomCode 事件日志',a:'AtomCode',sz:74,kind:'可回收'},
+ {p:'D:\\Notes\\workspace\\docs\\需求规格方案.md',n:'需求规格方案.md',a:'WorkBuddy',sz:0.02,kind:'交付物'}
+];
+const fmt=n=>n>=1024?(n/1024).toFixed(1)+' GB':(n<1?n.toFixed(2):Math.round(n))+' MB';
+const stc={done:'done',run:'run',int:'int',wait:'wait'};
+const stl={done:'已完成',run:'进行中',int:'已中断',wait:'等待确认'};
+const agc={WorkBuddy:'blue',CodeBuddy:'teal',AtomCode:'purple',OpenCode:'green','DeepSeek 桌面版':'coral','千问工作台':'amber'};
+function mins(s){if(!s||s==='进行中')return 12;const h=/(\d+)\s*小时/.exec(s),m=/(\d+)\s*分/.exec(s);return (h?+h[1]*60:0)+(m?+m[1]:0);}
+function badge(a){return `<span class="chip ${agc[a]||''}">${a}</span>`}
+function status(s){return `<span class="st ${stc[s]}"><span class="i"></span>${stl[s]}</span>`}
+function agentBar(){
+  const m={};T.forEach(t=>{m[t.a]=m[t.a]||{n:0,w:0};m[t.a].n++;m[t.a].w+=mins(t.wall)});
+  const mx=Math.max(...Object.values(m).map(v=>v.w));
+  return `<div style="display:flex;flex-direction:column;gap:11px">`+Object.entries(m).map(([k,v])=>`
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:12.5px"><span>${badge(k)}</span><span style="color:var(--tx2)">${v.n} 任务 · ${(v.w/60).toFixed(1)}h</span></div>
+      <div class="bar"><i style="width:${(v.w/mx*100).toFixed(0)}%;background:var(--${agc[k]||'blue'})"></i></div>
+    </div>`).join('')+`</div>`;
+}
+function trend(){
+  const d=[6,9,12,8,15,11,18,14,21,17,24,19,26,22];
+  const mx=Math.max(...d), W=620,H=170,PL=30;
+  const bw=(W-PL-10)/d.length;
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" height="170" role="img"><title>近 14 天任务活跃趋势</title>`;
+  for(let i=0;i<4;i++){const y=H-10-(H-30)/4*i; s+=`<line x1="${PL}" y1="${y}" x2="${W-6}" y2="${y}" stroke="rgba(0,0,0,.07)"/><text x="${PL-6}" y="${y+3.5}" font-size="9" fill="#888780" text-anchor="end">${mx/4*i|0}</text>`}
+  d.forEach((v,i)=>{const h=(H-30)*v/mx,x=PL+i*bw+2;
+    s+=`<rect x="${x}" y="${H-10-h}" width="${bw-5}" height="${h}" rx="2" fill="#185FA5" opacity="${.55+i*.03}"/>`;
+    s+=`<text x="${x+bw/2-2.5}" y="${H-2}" font-size="8.5" fill="#888780" text-anchor="middle">${i+16}</text>`});
+  s+=`</svg>`;return s;
+}
+function dash(){
+ const done=T.filter(t=>t.st==='done').length,intr=T.filter(t=>t.st==='int').length,pend=T.filter(t=>t.st==='run'||t.st==='wait').length;
+ const tot=T.reduce((s,t)=>s+t.sp,0);
+ const actM=T.reduce((s,t)=>s+mins(t.act),0), wallM=T.reduce((s,t)=>s+mins(t.wall),0);
+ const sizeGB=(A.filter(a=>a.inst).reduce((s,a)=>s+a.size,0)/1024).toFixed(1);
+ const hf=m=>(m/60).toFixed(1)+'h';
+ const todoN=TODOS.filter(t=>!t.done).length;
+ return `<div class="top"><div><h2>仪表盘</h2><p>统计范围：2026-10-29（今日） · 已扫描 6 个 Agent · 上次扫描 16:58</p></div><div class="spacer"></div>
+  <div class="seg"><button class="on">今日</button><button>本周</button><button>本月</button><button>自定义</button></div>
+  <select class="sel"><option>全部 Agent</option>${A.filter(x=>x.inst).map(x=>`<option>${x.name}</option>`).join('')}</select>
+  <select class="sel"><option>全部状态</option><option>已完成</option><option>进行中</option><option>已中断</option><option>等待确认</option></select>
+  <button class="btn pri">立即扫描</button></div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">会话总数</div><div class="v">147</div><div class="s">覆盖 6 个 Agent</div></div>
+    <div class="kpi"><div class="l">任务总数</div><div class="v">128</div><div class="s">今日 ${T.length} 个</div></div>
+    <div class="kpi acc"><div class="l">活跃时长</div><div class="v">${hf(actM)}</div><div class="s">墙钟 ${hf(wallM)}</div></div>
+    <div class="kpi"><div class="l">占用空间</div><div class="v">${sizeGB} GB</div><div class="s">6 个 Agent 根目录</div></div>
+    <div class="kpi warn"><div class="l">待办事项</div><div class="v">${todoN}</div><div class="s">跨 Agent 汇总</div></div>
+    <div class="kpi bad"><div class="l">中断任务</div><div class="v">${intr}</div><div class="s">需人工复盘</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Agent 维度分布</h3><div class="sub">按任务数与累计耗时</div>${agentBar()}
+      <div class="legend"><span><i style="background:var(--blue)"></i>WorkBuddy</span><span><i style="background:var(--teal)"></i>CodeBuddy</span><span><i style="background:var(--purple)"></i>AtomCode</span><span><i style="background:var(--green)"></i>OpenCode</span><span><i style="background:var(--coral)"></i>DeepSeek</span><span><i style="background:var(--amber)"></i>千问</span></div></div>
+    <div class="card"><h3>近 14 天活跃趋势</h3><div class="sub">每日完成任务数</div>${trend()}
+      <div class="legend"><span><i style="background:var(--blue)"></i>完成任务数</span><span style="color:var(--tx3)">峰值 26（10-28）</span></div></div>
+  </div>
+  <div class="card"><h3>任务明细</h3><div class="sub">点击任意行进入详情页</div>
+  <table><thead><tr><th style="width:15%">Agent</th><th style="width:31%">任务标题</th><th style="width:12%">项目</th><th style="width:9%">起止</th><th style="width:11%">耗时</th><th style="width:9%">状态</th><th style="width:7%">空间</th><th style="width:6%"></th></tr></thead>
+  <tbody>${T.map(t=>`<tr class="clk" onclick="detail('${t.id}')">
+    <td>${badge(t.a)}</td>
+    <td><span class="ttl">${t.title}</span><span class="sub2">${t.msg} 条消息 · ${t.tc} 次工具调用</span>${t.dir?`<span class="pthln" title="工作目录：${t.dir}${t.src?'&#10;会话文件：'+t.src:''}">${midPath(t.dir,46)}</span>`:''}</td>
+    <td><span class="sub2" style="color:var(--tx2)">${t.proj}</span></td>
+    <td><span class="sub2">${t.s} – ${t.e||'进行中'}</span></td>
+    <td><span style="font-size:12px">${t.act}</span><span class="sub2">墙钟 ${t.wall}</span></td>
+    <td>${status(t.st)}</td>
+    <td><span style="font-size:12px">${t.sp} MB</span></td>
+    <td style="color:var(--tx3)">›</td></tr>`).join('')}</tbody></table></div>
+  <div class="cols">
+    <div class="card"><h3>待办事项</h3><div class="sub">跨 Agent 汇总，勾销后同步回源</div>
+      ${TODOS.map((x,i)=>`<div class="todo ${x.done?'done':''}"><div class="cbx ${x.done?'on':''}" onclick="tog(${i})"></div><div><p>${x.t}</p><div class="m">${badge(x.a)} · ${x.p}</div></div></div>`).join('')}</div>
+    <div class="card"><h3>中断任务</h3><div class="sub">需人工判断是否续跑</div>
+      ${T.filter(t=>t.st==='int'||t.st==='wait').map(t=>`<div class="todo" onclick="detail('${t.id}')" style="cursor:pointer">
+        <div style="flex:1"><p>${t.title}</p><div class="m">${badge(t.a)} · ${t.s} 起 · 中断原因：${t.reason}</div></div>${status(t.st)}</div>`).join('')}
+      <div class="note">中断判定均附带依据，可手动修正状态；修正后写回索引并留痕。</div></div>
+  </div>
+  <div class="card"><h3>文件与空间</h3><div class="sub">各 Agent 根目录占用排行 · 中间文件仅提示，不自动删除</div>
+  <table><thead><tr><th style="width:22%">Agent</th><th style="width:32%">目录</th><th style="width:16%">占用</th><th style="width:30%">构成</th></tr></thead><tbody>
+  ${A.filter(x=>x.inst).map(x=>`<tr><td>${badge(x.name)}</td><td><span class="path">${x.path}</span></td><td>${fmt(x.size)}</td>
+    <td><div class="bar"><i style="width:${(x.size/2140*100).toFixed(0)}%;background:var(--${agc[x.name]||'blue'})"></i></div><span class="sub2">${x.sess} 个会话</span></td></tr>`).join('')}
+  </tbody></table>
+  <div class="hr"></div>
+  <table><thead><tr><th style="width:34%">路径</th><th style="width:24%">说明</th><th style="width:14%">来源</th><th style="width:14%">大小</th><th style="width:14%">类型</th></tr></thead><tbody>
+  ${FILES.map(f=>`<tr><td><span class="path">${f.p}</span></td><td>${f.n}</td><td>${badge(f.a)}</td><td>${f.sz} MB</td><td><span class="chip ${f.kind==='可回收'?'amber':'green'}">${f.kind}</span></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function detailHtml(id){
+ const t=T.find(x=>x.id===id);if(!t)return;
+ const ev=[
+  {k:'u',w:'用户',tm:t.s,bd:t.title+' —— 期望产出可直接验收的结果。'},
+  {k:'t',w:'工具调用',tm:t.s,bd:'读取工作区文件',tool:'Read  E:\\Workspace\\projects\\order-center\\pom.xml'},
+  {k:'t',w:'工具调用',tm:t.s,bd:'执行数据库连通性检查',tool:'Bash  docker ps --format "{{.Names}}\\t{{.Image}}\\t{{.Status}}"'},
+  {k:'a',w:'助手',tm:t.s,bd:'已完成 mapper 层多数据库方言适配，产出 7 个交付文件，剩余部分见待办清单。'},
+  {k:'t',w:'工具调用',tm:t.e,bd:'写入测试报告',tool:'Write  E:\\Workspace\\projects\\docs\\mapper-test-report.md'},
+  {k:'a',w:'助手',tm:t.e,bd:'本轮任务收尾，报告已生成，可直接查阅。'}
+ ];
+ return `<button class="back" onclick="show('dash')">‹ 返回仪表盘</button>
+ <div class="top"><div><h2>${t.title}</h2><p>${badge(t.a)} · ${t.proj} · ${t.s} – ${t.e||'进行中'}</p></div><div class="spacer"></div>${status(t.st)}
+  <button class="btn">修正状态</button><button class="btn">在文件夹中显示</button></div>
+ <div class="grid2">
+  <div>
+   <div class="card"><h3>任务概览</h3><div class="sub">一句话结论与关键统计</div>
+    <p style="font-size:12.5px;color:var(--tx2);margin-bottom:12px">${t.reason}。本次共 ${t.tc} 次工具调用，产出 2 个交付文件、2 个中间文件，${t.todo>0?'遗留 '+t.todo+' 项待办。':'无遗留待办。'}</p>
+    <dl class="kv">
+     <dt>所属 Agent</dt><dd>${t.a}</dd>
+     <dt>工作目录</dt><dd><span class="path">${bp(t.dir||t.proj)}</span></dd>
+     <dt>活跃耗时</dt><dd>${t.act}（墙钟 ${t.wall}）</dd>
+     <dt>消息 / 工具</dt><dd>${t.msg} 条消息 · ${t.tc} 次工具调用</dd>
+     <dt>占用空间</dt><dd>${t.sp} MB</dd>
+     <dt>状态依据</dt><dd>${t.reason}</dd>
+    </dl></div>
+   <div class="card"><h3>时间线</h3><div class="sub">用户消息 / 助手回复 / 工具调用</div>
+    <div class="tl">${ev.map(e=>`<div class="ev ${e.k}"><div class="h"><span class="who">${e.w}</span><span class="tm">${e.tm}</span></div><div class="bd">${e.bd}</div>${e.tool?`<div class="tool">${e.tool}</div>`:''}</div>`).join('')}</div></div>
+  </div>
+  <div>
+   <div class="card"><h3>产出文件</h3><div class="sub">交付物与中间文件分列</div>
+    <div class="chips" style="margin-bottom:10px"><span class="chip green">交付物 2</span><span class="chip amber">中间文件 2</span></div>
+    <table style="table-layout:fixed"><thead><tr><th style="width:64%">文件</th><th style="width:18%">类型</th><th style="width:18%">大小</th></tr></thead><tbody>
+     <tr><td><span class="sub2" style="color:var(--tx)" title="docs/mapper-test-report.md">docs/mapper-test-report.md</span></td><td><span class="chip green">交付物</span></td><td>12 MB</td></tr>
+     <tr><td><span class="sub2" style="color:var(--tx)" title="src/main/resources/mapper/dialect.xml">src/…/mapper/dialect.xml</span></td><td><span class="chip green">交付物</span></td><td>4 MB</td></tr>
+     <tr><td><span class="sub2" style="color:var(--tx)" title=".workbuddy/file-history/snap-8821">.workbuddy/file-history/snap-8821</span></td><td><span class="chip amber">中间</span></td><td>86 MB</td></tr>
+     <tr><td><span class="sub2" style="color:var(--tx)" title=".workbuddy/blobs/tmp-4412">.workbuddy/blobs/tmp-4412</span></td><td><span class="chip amber">中间</span></td><td>41 MB</td></tr>
+    </tbody></table>
+    <div class="note">中间文件仅统计与提示，清理需人工确认后执行，插件不自动删除任何文件。</div></div>
+   <div class="card"><h3>待办</h3><div class="sub">从助手消息与 todo 文件抽取</div>
+    ${t.todo===0?'<div class="empty">本任务无遗留待办</div>':TODOS.filter(x=>!x.done).slice(0,t.todo).map((x,i)=>`<div class="todo"><div class="cbx"></div><div><p>${x.t}</p><div class="m">${badge(x.a)}</div></div></div>`).join('')}</div>
+   <div class="card"><h3>原始记录</h3><div class="sub">溯源信息</div>
+    <dl class="kv"><dt>会话 ID</dt><dd><span class="path">${t.aid}-a7f3-91c2-5d8e</span></dd>
+    <dt>源文件</dt><dd><span class="path">${bp(t.src||t.aid+'\\projects\\'+t.proj+'\\a7f3-91c2.jsonl')}</span></dd>
+    <dt>文件指纹</dt><dd>mtime 1793246290 · 412 KB</dd>
+    <dt>适配器</dt><dd>${t.aid}-adapter v1.2</dd></dl></div>
+  </div>
+ </div>`;
+}
+function agents(){
+ return `<div class="top"><div><h2>Agent 管理</h2><p>启用/停用监控对象，配置对话记录路径</p></div><div class="spacer"></div>
+ <button class="btn">恢复默认路径</button><button class="btn pri">添加自定义 Agent</button></div>
+ <div class="card"><h3>内置适配器（11）</h3><div class="sub">自动探测安装状态，路径可自定义覆盖</div>
+ <table><thead><tr><th style="width:16%">Agent</th><th style="width:8%">启用</th><th style="width:9%">安装状态</th><th style="width:34%">对话记录路径</th><th style="width:9%">会话数</th><th style="width:10%">占用</th><th style="width:14%">操作</th></tr></thead><tbody>
+ ${A.map((a,i)=>`<tr><td><span class="ttl">${a.name}</span><span class="sub2">${a.ver||'—'}</span></td>
+ <td><div class="sw ${a.inst?'on':''}" onclick="sw(${i},this)"></div></td>
+ <td>${a.inst?'<span class="st done"><span class="i"></span>已安装</span>':'<span class="st wait"><span class="i"></span>未检测到</span>'}</td>
+ <td><span class="path">${a.path}</span></td><td>${a.sess||'—'}</td><td>${a.inst?fmt(a.size):'—'}</td>
+ <td><span style="color:var(--blue)">编辑路径</span>　<span style="color:var(--tx3)">解析器</span></td></tr>`).join('')}
+ </tbody></table></div>
+ <div class="card"><h3>添加自定义 Agent</h3><div class="sub">通用 JSONL 适配器，无需改代码</div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+   <div><label style="font-size:11.5px;color:var(--tx3)">名称</label><input class="sel" style="width:100%;margin-top:4px" value="MyAgent"></div>
+   <div><label style="font-size:11.5px;color:var(--tx3)">根路径</label><input class="sel" style="width:100%;margin-top:4px" value="D:\\tools\\myagent"></div>
+   <div><label style="font-size:11.5px;color:var(--tx3)">文件通配符</label><input class="sel" style="width:100%;margin-top:4px" value="**/*.jsonl"></div>
+   <div><label style="font-size:11.5px;color:var(--tx3)">解析方式</label><select class="sel" style="width:100%;margin-top:4px"><option>JSONL</option><option>SQLite</option><option>Electron 存储</option><option>目录树</option></select></div>
+   <div><label style="font-size:11.5px;color:var(--tx3)">时间字段</label><input class="sel" style="width:100%;margin-top:4px" value="timestamp"></div>
+   <div><label style="font-size:11.5px;color:var(--tx3)">角色字段</label><input class="sel" style="width:100%;margin-top:4px" value="role"></div>
+  </div>
+  <div style="margin-top:13px"><button class="btn">测试解析</button> <button class="btn pri">保存</button></div>
+  <div class="note">字段映射完整则产出标准任务；字段缺失则降级为「原始片段模式」，仅登记文件与占用。</div></div>`;
+}
+function sched(){
+ return `<div class="top"><div><h2>扫描调度</h2><p>定时扫描与报告产出</p></div><div class="spacer"></div><button class="btn pri">新增调度</button></div>
+ <div class="card"><h3>调度规则</h3><div class="sub">Obsidian 关闭时由外部守护进程兜底</div>
+  <div class="setrow"><div class="sw on"></div><div style="flex:1"><div class="ttl">进度轮询</div><div class="sub2">每 10 分钟扫描一次，更新进行中任务状态</div></div><span class="chip blue">间隔 10 分钟</span></div>
+  <div class="setrow"><div class="sw on"></div><div style="flex:1"><div class="ttl">每日日报</div><div class="sub2">生成当日工作汇总</div></div><span class="chip blue">每天 17:00</span></div>
+  <div class="setrow"><div class="sw on"></div><div style="flex:1"><div class="ttl">周度空间盘点</div><div class="sub2">统计占用与可回收中间文件</div></div><span class="chip blue">每周一 09:00</span></div>
+  <div class="setrow"><div class="sw"></div><div style="flex:1"><div class="ttl">全量重建</div><div class="sub2">忽略增量指纹，重新解析全部会话</div></div><span class="chip">手动</span></div>
+ </div>
+ <div class="card"><h3>扫描历史</h3><div class="sub">最近 6 轮</div>
+ <table><thead><tr><th style="width:18%">时间</th><th style="width:14%">触发方式</th><th style="width:12%">耗时</th><th style="width:16%">新增会话</th><th style="width:14%">解析任务</th><th style="width:12%">错误</th><th style="width:14%">结果</th></tr></thead><tbody>
+ <tr><td>16:58</td><td>间隔 10 分钟</td><td>3.2s</td><td>2</td><td>2</td><td>0</td><td><span class="st done"><span class="i"></span>成功</span></td></tr>
+ <tr><td>16:48</td><td>间隔 10 分钟</td><td>2.9s</td><td>0</td><td>0</td><td>0</td><td><span class="st done"><span class="i"></span>成功</span></td></tr>
+ <tr><td>16:38</td><td>间隔 10 分钟</td><td>3.1s</td><td>1</td><td>1</td><td>0</td><td><span class="st done"><span class="i"></span>成功</span></td></tr>
+ <tr><td>16:20</td><td>手动</td><td>4.4s</td><td>3</td><td>3</td><td>0</td><td><span class="st done"><span class="i"></span>成功</span></td></tr>
+ <tr><td>15:00</td><td>守护进程</td><td>5.0s</td><td>5</td><td>4</td><td>1</td><td><span class="st wait"><span class="i"></span>1 个文件解析失败</span></td></tr>
+ <tr><td>12:00</td><td>守护进程</td><td>4.8s</td><td>11</td><td>11</td><td>0</td><td><span class="st done"><span class="i"></span>成功</span></td></tr>
+ </tbody></table>
+ <div class="note">守护进程：<span class="path">agentcenter daemon</span>，由 Windows 任务计划 / launchd / systemd timer 注册，Obsidian 未运行时仍可产出日报。</div></div>`;
+}
+function conn(){
+ return `<div class="top"><div><h2>Agent 接入</h2><p>让任意 Agent 工具直接查询任务中心数据</p></div></div>
+ <div class="card"><h3>MCP 工具清单</h3><div class="sub">以 stdio 方式暴露，任何支持 MCP 的客户端均可接入</div>
+  <table><thead><tr><th style="width:26%">工具</th><th style="width:34%">参数</th><th style="width:40%">返回</th></tr></thead><tbody>
+  <tr><td><span class="path">agentcenter_summary</span></td><td>start, end, groupBy</td><td>周期汇总：任务数、耗时、空间、按 Agent 分布</td></tr>
+  <tr><td><span class="path">agentcenter_list_sessions</span></td><td>agent, status, since, limit</td><td>任务清单</td></tr>
+  <tr><td><span class="path">agentcenter_get_session</span></td><td>taskId / sessionId</td><td>单任务详情：时间线、文件、待办</td></tr>
+  <tr><td><span class="path">agentcenter_list_todos</span></td><td>status, agent</td><td>待办清单</td></tr>
+  <tr><td><span class="path">agentcenter_storage_report</span></td><td>agent, includeIntermediate</td><td>空间占用与中间文件报告</td></tr>
+  <tr><td><span class="path">agentcenter_trigger_scan</span></td><td>agents</td><td>触发一次扫描并返回摘要</td></tr>
+  </tbody></table></div>
+ <div class="card"><h3>各客户端接入方式</h3><div class="sub">写入配置文件后重启客户端并信任</div>
+  <table><thead><tr><th style="width:20%">客户端</th><th style="width:44%">配置位置</th><th style="width:36%">说明</th></tr></thead><tbody>
+  <tr><td>WorkBuddy / CodeBuddy</td><td><span class="path">~/.workbuddy/mcp.json</span></td><td>插件页一键写入</td></tr>
+  <tr><td>Claude Code</td><td><span class="path">~/.claude.json</span></td><td>claude mcp add</td></tr>
+  <tr><td>Qoder</td><td><span class="path">设置 → MCP 服务器</span></td><td>手动添加 stdio</td></tr>
+  <tr><td>DeepSeek / Trae</td><td><span class="path">各自 MCP 配置</span></td><td>手动添加 stdio</td></tr>
+  </tbody></table></div>
+ <div class="card"><h3>命令行</h3><div class="sub">供系统计划任务与脚本调用</div>
+  <div class="tool">agentcenter scan --agents workbuddy,codebuddy --full
+agentcenter summary --start 2026-10-29 --end 2026-10-29 --json
+agentcenter todos --status pending --json
+agentcenter storage --agent workbuddy --json
+agentcenter report --date 2026-10-29 --out ./日报.md
+agentcenter mcp</div></div>`;
+}
+function set(){
+ return `<div class="top"><div><h2>设置</h2><p>数据位置、报告与隐私</p></div></div>
+ <div class="card"><h3>报告</h3><div class="sub">日报生成与存放</div>
+  <div class="setrow"><div style="flex:1"><div class="ttl">日报目录</div><span class="path">AgentCenter/日报/</span></div><button class="btn">更改</button></div>
+  <div class="setrow"><div class="sw on"></div><div style="flex:1"><div class="ttl">扫描后自动生成当日日报</div><div class="sub2">覆盖同日文件，不产生重复</div></div></div>
+  <div class="setrow"><div style="flex:1"><div class="ttl">日报模板</div><div class="sub2">包含：完成事项 / 待办 / 中断 / 空间占用 / 各 Agent 分布</div></div><button class="btn">编辑</button></div>
+ </div>
+ <div class="card"><h3>数据与性能</h3>
+  <div class="setrow"><div style="flex:1"><div class="ttl">索引位置</div><span class="path">.obsidian/plugins/agentcenter/index.json</span></div><button class="btn">备份</button></div>
+  <div class="setrow"><div style="flex:1"><div class="ttl">增量扫描</div><div class="sub2">基于 mtime+size 指纹跳过未变更文件</div></div><div class="sw on"></div></div>
+  <div class="setrow"><div style="flex:1"><div class="ttl">扫描窗口</div><div class="sub2">仅扫描最近 N 天的会话</div></div><span class="chip">30 天</span></div>
+ </div>
+ <div class="card"><h3>隐私</h3>
+  <div class="note">AgentCenter 以只读方式访问各 Agent 的对话记录目录，全部解析在本地完成，不上传任何对话内容。中间文件仅统计与提示，插件不会自动删除任何文件。首次扫描前请确认各 Agent 目录路径配置正确。</div>
+ </div>`;
+}
+function todoView(){
+ const open=TODOS.filter(t=>!t.done),closed=TODOS.filter(t=>t.done);
+ return `<div class="top"><div><h2>待办事项</h2><p>跨 Agent 汇总 · 未完成 ${open.length} 项 / 已完成 ${closed.length} 项</p></div><div class="spacer"></div>
+ <select class="sel"><option>全部 Agent</option>${A.filter(x=>x.inst).map(x=>`<option>${x.name}</option>`).join('')}</select>
+ <select class="sel"><option>全部状态</option><option>未完成</option><option>已完成</option></select>
+ <button class="btn">导出清单</button></div>
+ <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+  <div class="kpi warn"><div class="l">未完成</div><div class="v">${open.length}</div><div class="s">来自 ${new Set(open.map(x=>x.a)).size} 个 Agent</div></div>
+  <div class="kpi"><div class="l">已完成</div><div class="v">${closed.length}</div><div class="s">近 7 天勾销</div></div>
+  <div class="kpi"><div class="l">待确认</div><div class="v">2</div><div class="s">等待用户输入</div></div>
+  <div class="kpi bad"><div class="l">已中断遗留</div><div class="v">1</div><div class="s">需人工续跑</div></div>
+ </div>
+ <div class="card"><h3>未完成事项</h3><div class="sub">来源：助手消息中的勾选清单与 todo 文件</div>
+ <table><thead><tr><th style="width:6%">完成</th><th style="width:44%">事项</th><th style="width:16%">来源 Agent</th><th style="width:16%">项目</th><th style="width:18%">抽取来源</th></tr></thead><tbody>
+ ${open.map(x=>{const i=TODOS.indexOf(x);return `<tr><td><div class="cbx" onclick="tog(${i})"></div></td>
+  <td>${x.t}</td><td>${badge(x.a)}</td><td><span class="sub2" style="color:var(--tx2)">${x.p}</span></td>
+  <td><span class="chip">助手消息清单</span></td></tr>`}).join('')}
+ </tbody></table>
+ <div class="note">勾销后写回索引并标记「人工完成」，不修改原始会话记录。</div></div>
+ <div class="card"><h3>已完成事项</h3><div class="sub">供回溯核对</div>
+ <table><thead><tr><th style="width:6%"></th><th style="width:52%">事项</th><th style="width:21%">来源 Agent</th><th style="width:21%">项目</th></tr></thead><tbody>
+ ${closed.map(x=>`<tr><td><div class="cbx on"></div></td><td style="color:var(--tx3);text-decoration:line-through">${x.t}</td><td>${badge(x.a)}</td><td><span class="sub2" style="color:var(--tx2)">${x.p}</span></td></tr>`).join('')}
+ </tbody></table></div>`;
+}
+function fileView(){
+ const rec=FILES.filter(f=>f.kind==='可回收').reduce((s,f)=>s+f.sz,0);
+ return `<div class="top"><div><h2>文件与空间</h2><p>各 Agent 根目录占用 · 中间文件仅提示，不自动删除</p></div><div class="spacer"></div>
+ <button class="btn">重新统计</button><button class="btn">导出清单</button></div>
+ <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+  <div class="kpi"><div class="l">总占用</div><div class="v">4.5 GB</div><div class="s">6 个 Agent</div></div>
+  <div class="kpi acc"><div class="l">交付物</div><div class="v">1.8 GB</div><div class="s">40%</div></div>
+  <div class="kpi warn"><div class="l">中间文件</div><div class="v">2.7 GB</div><div class="s">可回收候选</div></div>
+  <div class="kpi bad"><div class="l">本次可回收</div><div class="v">${rec} MB</div><div class="s">需人工确认</div></div>
+ </div>
+ <div class="card"><h3>Agent 根目录占用</h3><div class="sub">递归统计，排除符号链接</div>
+ <table><thead><tr><th style="width:16%">Agent</th><th style="width:34%">路径</th><th style="width:10%">会话数</th><th style="width:10%">占用</th><th style="width:30%">构成</th></tr></thead><tbody>
+ ${A.filter(x=>x.inst).map(x=>`<tr><td>${badge(x.name)}</td><td><span class="path">${x.path}</span></td><td>${x.sess}</td><td>${fmt(x.size)}</td>
+  <td><div class="bar"><i style="width:${(x.size/2140*100).toFixed(0)}%;background:var(--${agc[x.name]||'blue'})"></i></div><span class="sub2">交付物 40% · 中间 60%</span></td></tr>`).join('')}
+ </tbody></table></div>
+ <div class="card"><h3>中间文件清单</h3><div class="sub">按大小排序 · 标注清理优先级</div>
+ <table><thead><tr><th style="width:36%">路径</th><th style="width:22%">说明</th><th style="width:12%">来源</th><th style="width:10%">大小</th><th style="width:10%">类型</th><th style="width:10%">优先级</th></tr></thead><tbody>
+ ${FILES.map(f=>`<tr><td><span class="path">${f.p}</span></td><td>${f.n}</td><td>${badge(f.a)}</td><td>${f.sz} MB</td>
+  <td><span class="chip ${f.kind==='可回收'?'amber':'green'}">${f.kind}</span></td>
+  <td><span class="chip ${f.sz>=200?'red':f.sz>=80?'amber':''}">${f.sz>=200?'高':f.sz>=80?'中':'低'}</span></td></tr>`).join('')}
+ </tbody></table>
+ <div class="note">插件永不自作主张删除文件。上表仅提供「可回收」判定与优先级，实际清理需用户在文件管理器中确认执行。</div></div>`;
+}
+function arch(){
+ const layer=(t,s,items,color)=>`
+  <div style="border:.5px solid var(--line);border-radius:9px;padding:12px 14px;background:var(--surface)">
+   <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px"><span class="chip ${color}">${t}</span><span style="font-size:11.5px;color:var(--tx3)">${s}</span></div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap">${items.map(i=>`<span class="chip">${i}</span>`).join('')}</div>
+  </div>`;
+ return `<div class="top"><div><h2>系统架构</h2><p>本地只读扫描 · 四层结构 · 三种接出形态</p></div></div>
+ <div class="card"><h3>数据流</h3><div class="sub">Agent 原始记录 → 适配器归一化 → 索引 → 展示与接入</div>
+ <div style="display:flex;flex-direction:column;gap:9px">
+  ${layer('采集层','11 个内置适配器 + 通用自定义适配器，只读扫描',['WorkBuddy','CodeBuddy','Trae','zcode','OpenCode','AtomCode','DeepSeek','Codex','Claude Code','豆包','千问'],'blue')}
+  <div style="text-align:center;color:var(--tx3);font-size:11px">↓ 统一归一化</div>
+  ${layer('解析层','会话 → 任务切分、状态判定、耗时/空间统计、待办抽取',['session-meta','message','tool_use','todo 文件','file-history'],'teal')}
+  <div style="text-align:center;color:var(--tx3);font-size:11px">↓ 增量写入</div>
+  ${layer('索引层','JSON 分月分片 + 指纹增量，落盘插件目录',['index/2026-10.json','fingerprints.json','scans.json'],'purple')}
+  <div style="text-align:center;color:var(--tx3);font-size:11px">↓ 读取渲染</div>
+  ${layer('呈现层','Obsidian 视图 + 日报 + 外部接入',['Dashboard','任务详情','侧边栏','日报 Markdown','MCP Server','CLI'],'amber')}
+ </div></div>
+ <div class="grid2">
+  <div class="card"><h3>三种形态共用同一内核</h3><div class="sub">避免逻辑分叉</div>
+   <table><thead><tr><th style="width:26%">形态</th><th style="width:34%">运行宿主</th><th style="width:40%">使用场景</th></tr></thead><tbody>
+   <tr><td>Obsidian 插件</td><td>Obsidian 主进程</td><td>日常查看、日报沉淀、设置管理</td></tr>
+   <tr><td>CLI / 守护进程</td><td>Node 常驻 + 系统计划任务</td><td>Obsidian 关闭时定时扫描与出报</td></tr>
+   <tr><td>MCP Server</td><td>stdio，被各 Agent 拉起</td><td>在任意 Agent 对话中反查任务数据</td></tr>
+   </tbody></table></div>
+  <div class="card"><h3>关键边界</h3><div class="sub">评审需确认的约束</div>
+   <div class="setrow"><div style="flex:1"><div class="ttl">只读</div><div class="sub2">绝不写入、移动、删除 Agent 源目录</div></div><span class="chip green">硬约束</span></div>
+   <div class="setrow"><div style="flex:1"><div class="ttl">本地解析</div><div class="sub2">对话内容不出本机，默认不调模型</div></div><span class="chip green">硬约束</span></div>
+   <div class="setrow"><div style="flex:1"><div class="ttl">不自动删文件</div><div class="sub2">中间文件只统计与提示</div></div><span class="chip green">硬约束</span></div>
+   <div class="setrow"><div style="flex:1"><div class="ttl">状态可解释</div><div class="sub2">每个状态附判定依据，可人工修正</div></div><span class="chip amber">设计约束</span></div></div>
+ </div>`;
+}
+const V={dash,tasks:null,todos:null,files:null,agents,sched,conn,set,arch};
+function taskView(){
+ return `<div class="top"><div><h2>任务列表</h2><p>共 128 个任务 · 今日 ${T.length} 个 · 点击行进入详情</p></div><div class="spacer"></div>
+ <div class="seg"><button class="on">今日</button><button>本周</button><button>本月</button><button>自定义</button></div>
+ <select class="sel"><option>全部 Agent</option>${A.filter(x=>x.inst).map(x=>`<option>${x.name}</option>`).join('')}</select>
+ <select class="sel"><option>全部状态</option><option>已完成</option><option>进行中</option><option>已中断</option><option>等待确认</option></select>
+ <button class="btn pri">立即扫描</button></div>
+ <div class="card">
+ <table><thead><tr><th style="width:14%">Agent</th><th style="width:30%">任务标题</th><th style="width:12%">项目</th><th style="width:9%">起止</th><th style="width:11%">耗时</th><th style="width:10%">状态</th><th style="width:8%">空间</th><th style="width:6%"></th></tr></thead>
+ <tbody>${T.map(t=>`<tr class="clk" onclick="detail('${t.id}')">
+   <td>${badge(t.a)}</td>
+   <td><span class="ttl">${t.title}</span><span class="sub2">${t.msg} 条消息 · ${t.tc} 次工具调用 · ${t.files} 个产出</span></td>
+   <td><span class="sub2" style="color:var(--tx2)">${t.proj}</span></td>
+   <td><span class="sub2">${t.s} – ${t.e||'进行中'}</span></td>
+   <td><span style="font-size:12px">${t.act}</span><span class="sub2">墙钟 ${t.wall}</span></td>
+   <td>${status(t.st)}</td>
+   <td><span style="font-size:12px">${t.sp} MB</span></td>
+   <td style="color:var(--tx3)">›</td></tr>`).join('')}</tbody></table></div>`;
+}
+let CUR='dash';
+function show(v){CUR=v;
+ const nt=document.getElementById('navTasks'), nd=document.getElementById('navTodos');
+ if(nt)nt.textContent=T.length; if(nd)nd.textContent=TODOS.filter(x=>!x.done).length;
+ document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('on',n.dataset.v===v));
+ const m=document.getElementById('main');
+ m.innerHTML = v==='tasks' ? taskView()
+   : v==='todos' ? todoView()
+   : v==='files' ? fileView()
+   : V[v]();
+ window.scrollTo(0,0);}
+function detailPage(id){show('dash');const m=document.getElementById('main');m.innerHTML=detailHtml(id);window.scrollTo(0,0);}
+document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>show(n.dataset.v));
+function sw(i,el){el.classList.toggle('on')}
+function tog(i){TODOS[i].done=!TODOS[i].done;show(CUR==='todos'?'todos':'dash')}
+window.show=show;window.detail=detailPage;window.sw=sw;window.tog=tog;
+function vw(w,el){
+  document.body.classList.toggle('narrow',w==='narrow');
+  document.querySelectorAll('.devbar button').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
+  window.scrollTo(0,0);
+}
+window.vw=vw;
+function route(){
+  const h=(location.hash||'').replace('#','');
+  if(!h) return show('dash');
+  if(h.startsWith('task/')) return detailPage(h.slice(5));
+  if(V[h]||h==='tasks'||h==='todos'||h==='files') return show(h);
+  show('dash');
+}
+window.addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>

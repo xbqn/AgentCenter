@@ -1,0 +1,67 @@
+{
+  "name": "dsh-agentcenter",
+  "version": "0.3.0",
+  "description": "AgentCenter for DeepSeek Harness: read-only scan of every local AI agent session, with a task center page in the panel, AI daily reports through your own models, and session references you can drop into any conversation.",
+  "type": "module",
+  "private": false,
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "agent",
+    "session",
+    "task-center",
+    "daily-report",
+    "analytics"
+  ],
+  "license": "MIT",
+  "author": "AgentCenter contributors",
+  "homepage": "https://github.com/xbqn/AgentCenter/tree/main/plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xbqn/AgentCenter.git",
+    "directory": "plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/xbqn/AgentCenter/issues"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "app/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node scripts/prepack.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    },
+    "manifestVersion": 1,
+    "engines": {
+      "dsh": ">=0.1.7-rc.1"
+    }
+  }
+}

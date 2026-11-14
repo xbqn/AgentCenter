@@ -1,0 +1,23 @@
+{
+  "_comment": "把本文件复制成 tools/scrub-rules.json（已被 .gitignore 排除），换成你自己的替换规则。顺序敏感：长串在前。",
+  "rules": [
+    ["你的用户名", "dev"],
+    ["YOUR8.3NAME", "DEV"],
+    ["你的账号 UUID", "00000000-0000-0000-0000-000000000000"],
+    ["com.yourcorp", "com.example"],
+    ["@yourcorp.com", "@example.com"],
+    ["yourcorp", "example"],
+    ["你的项目代号大写", "ORDER"],
+    ["你的项目代号", "Order"],
+    ["你的项目代号小写", "order"],
+    ["你的仓库目录别名", "workspace"],
+    ["你的公网出口 IP", "203.0.113.10"]
+  ],
+  "leftover": [
+    "你的用户名",
+    "YOUR8.3NAME",
+    "yourcorp",
+    "你的项目代号",
+    "203.0.113.10"
+  ]
+}

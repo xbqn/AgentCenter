@@ -1,0 +1,9 @@
+# dsh-agentcenter — 插件行
+#
+# 这里不需要配置任何东西：运行时的应用本体随包发布在 app/ 里，
+# 数据（索引 / 日报 / 引用导出 / 关联表）默认写到 ~/.agentcenter，
+# 所有可调项都在 DSH 的 设置 → AgentCenter 里改，保存时由插件通过
+# configEditor 写进当前 profile 的配置层。
+- insert:
+    - id: agentcenter
+      name: dsh-agentcenter

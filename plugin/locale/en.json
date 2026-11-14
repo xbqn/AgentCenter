@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "AgentCenter task center",
+    "description": "Opens AgentCenter from the sidebar More menu, starts its local service when needed, and shows the real page in place."
+  }
+}

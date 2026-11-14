@@ -1,0 +1,38 @@
+# ---- 依赖与构建产物 ----
+node_modules/
+dist/
+build/
+
+# ---- 本机扫描产物与用户状态（不入库）----
+# data/ 里是只读扫描的索引、日报、人工标记与本机配置，含本机路径与真实会话内容，
+# 换台机器用 `node cli/agentcenter.mjs scan` 重新生成即可，因此不提交。
+data/*.json
+data/*.tmp-*
+data/.*
+data/日报/
+data/search/
+data/search-text.txt
+data/**/*.md
+!data/README.md
+
+# ---- 工具现场与本地临时文件 ----
+.scratch/
+.workbuddy/
+*.genie
+*.log
+Thumbs.db
+.DS_Store
+
+# ---- 本机私有规则（脱敏词表里是真实的用户名 / 账号 / 公司域）----
+tools/scrub-rules.json
+!tools/scrub-rules.example.json
+
+# ---- 编辑器 ----
+.vscode/
+.idea/
+
+# ---- 打包/归档（本机快照，可能含 .git 与真实数据）----
+*.rar
+*.zip
+*.7z
+*.tar.gz

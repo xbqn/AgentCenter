@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="AgentCenter">
+  <rect x="3" y="3" width="58" height="58" rx="15" fill="#3B82F6"/>
+  <g stroke="#FFFFFF" stroke-width="4.6" stroke-linecap="round">
+    <path d="M17 21h21"/>
+    <path d="M17 32h29"/>
+    <path d="M17 43h16"/>
+  </g>
+  <circle cx="47" cy="21" r="4.4" fill="#7DE2C3"/>
+</svg>
