@@ -49,7 +49,9 @@
     "access": "public"
   },
   "scripts": {
-    "prepack": "node scripts/prepack.mjs"
+    "prepack": "node scripts/prepack.mjs",
+    "release": "node scripts/publish.mjs",
+    "release:dry": "node scripts/publish.mjs --dry-run"
   },
   "dsh": {
     "bundle": {
