@@ -1,6 +1,7 @@
 # AgentCenter · DeepSeek Harness 插件
 
 [![dsh plugin](https://img.shields.io/badge/DeepSeek%20Harness-plugin-4F46E5)](https://github.com/deepseek-ai/DeepSeek-Harness)
+[![npm](https://img.shields.io/npm/v/dsh-agentcenter?label=npm&color=cb3837)](https://www.npmjs.com/package/dsh-agentcenter)
 [![license](https://img.shields.io/badge/license-MIT-green)](./plugin/LICENSE)
 
 **同时用好几个 AI 编程工具的人，大概都遇到过同一件事**：上周那个方案是在 WorkBuddy 里聊的，还是 Qoder？那个报错的结论在 Trae 的哪次会话里？三个工具各存各的、各搜各的，找一段旧对话要挨个打开翻，翻到之后还得把上下文重新贴一遍才能接着问。
@@ -67,21 +68,58 @@
 
 ## 安装
 
-**从 npm**（推荐）：DSH → 设置 → 插件 → 添加插件，填包名：
+包已发布到 npm：[`dsh-agentcenter`](https://www.npmjs.com/package/dsh-agentcenter)
 
 ```
-dsh-agentcenter
+npm view dsh-agentcenter version
 ```
 
-**从源码开发**：
+### 方式一：在 DeepSeek Harness 里装（推荐）
+
+1. 打开 DSH，进入 **设置 → 插件**；
+2. 点 **添加插件**，在输入框里填包名：
+
+   ```
+   dsh-agentcenter
+   ```
+
+3. 确认安装，等待安装完成（首次会拉取约 170 KB 的包）；
+4. 插件默认启用。回到主界面，左侧栏会多出 **AgentCenter** 入口；
+5. 点开它，页面显示「启动服务」按钮时点一下——服务会在 **DSH 进程内**启动（不拉子进程、不开浏览器窗口），随后就是完整任务中心；
+6. 想放到「更多」菜单里，或调整端口、数据目录、AI 日报模型：**设置 → AgentCenter**。
+
+> 装完如果左侧没看到入口：确认插件处于启用状态，然后重载一次插件或按 `Ctrl+R` 刷新界面。
+
+### 方式二：命令行安装
+
+在 DSH 的 profile 目录下用插件管理器安装（`include:agentcenter` 是插件 id）：
+
+```
+dsh plugin add dsh-agentcenter
+```
+
+或者直接把包名写进 profile 的插件列表后重载。
+
+### 方式三：从源码开发
 
 ```bat
+git clone https://github.com/xbqn/AgentCenter.git
+cd AgentCenter
 node tools\bundle-app.mjs
 ```
-然后在 DSH 里用插件管理器安装 `plugin/` 目录。
 
-**环境要求**：Node.js **22.15+ 或 23.8+**（读取 DSH 的多帧 `.zstd` 会话需要 `node:zlib` 的 zstd）。
-更早的版本也能启动：其它 Agent 照常扫描，只有 DSH 的 `.zstd` 会话被跳过并说明原因。
+然后用 DSH 的插件管理器以 **本地目录** 方式安装 `plugin/` 目录（指向 `plugin` 这个文件夹，不要指向整个仓库）。
+
+改完 `h5/`、`core/` 或 `docs/解析规则/` 之后要重新跑 `node tools\bundle-app.mjs`，把运行时同步进 `plugin/app/`——插件实际服务的是那份副本。`node tools\bundle-app.mjs --check` 可以检查是否忘了同步。
+
+### 环境要求
+
+Node.js **22.15+ 或 23.8+**（读取 DSH 的多帧 `.zstd` 会话需要 `node:zlib` 的 zstd）。
+更早的版本也能启动：其它 Agent 照常扫描，只有 DSH 的 `.zstd` 会话被跳过并在页面上说明原因。
+
+### 装好之后先做这一步
+
+打开 AgentCenter 页面 → 点「立即扫描」。首次扫描会遍历各 Agent 的会话目录（本机 500 多个会话大约十几秒到一分钟）。扫描完，任务列表、日报、空间统计才有数据。
 
 ## 独立运行（不装 DSH）
 

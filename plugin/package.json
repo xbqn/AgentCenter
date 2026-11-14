@@ -1,6 +1,6 @@
 {
   "name": "dsh-agentcenter",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "AgentCenter for DeepSeek Harness: read-only scan of every local AI agent session, with a task center page in the panel, AI daily reports through your own models, and session references you can drop into any conversation.",
   "type": "module",
   "private": false,
