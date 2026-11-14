@@ -1,0 +1,112 @@
+name: Release
+
+# 打 tag（v*）时自动：
+#   1. 用 npm 上已发布的包做一次完整性校验
+#   2. 把 tarball 下载下来附到 GitHub Release
+# 这样 Release 里的附件永远和 npm registry 上的内容逐字节一致，
+# 不需要本地打包、也不会因为本地环境和 registry 有差异而对不上。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要创建 Release 的 tag（例如 v0.3.1）'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve version
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # v0.3.1 -> 0.3.1
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the npm package to be available
+        id: npm
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          NAME="dsh-agentcenter"
+          for i in $(seq 1 30); do
+            META=$(curl -fsS "https://registry.npmjs.org/$NAME" || true)
+            if echo "$META" | grep -q "\"$VERSION\""; then
+              echo "found=true" >> "$GITHUB_OUTPUT"
+              echo "tarball=$(echo "$META" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(j.versions[process.argv[1]].dist.tarball)})' "$VERSION")" >> "$GITHUB_OUTPUT"
+              echo "shasum=$(echo "$META" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(j.versions[process.argv[1]].dist.shasum)})' "$VERSION")" >> "$GITHUB_OUTPUT"
+              echo "✓ $NAME@$VERSION 已在 npm 上"
+              exit 0
+            fi
+            echo "  · 等待 $NAME@$VERSION 出现在 registry（$i/30）"
+            sleep 10
+          done
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "⚠ npm 上还没有这个版本，Release 将只包含源码"
+
+      - name: Download the published tarball
+        if: steps.npm.outputs.found == 'true'
+        run: |
+          curl -fsSL "${{ steps.npm.outputs.tarball }}" -o "dsh-agentcenter-${{ steps.meta.outputs.version }}.tgz"
+          ACTUAL=$(sha1sum "dsh-agentcenter-${{ steps.meta.outputs.version }}.tgz" | cut -d' ' -f1)
+          EXPECT="${{ steps.npm.outputs.shasum }}"
+          echo "实际 sha1: $ACTUAL"
+          echo "期望 sha1: $EXPECT"
+          if [ "$ACTUAL" != "$EXPECT" ]; then
+            echo "✗ tarball 校验失败" >&2
+            exit 1
+          fi
+          echo "✓ tarball 与 npm registry 一致"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: dsh-agentcenter ${{ steps.meta.outputs.version }}
+          generate_release_notes: false
+          files: |
+            dsh-agentcenter-${{ steps.meta.outputs.version }}.tgz
+          body: |
+            ## 安装
+
+            在 DeepSeek Harness 里：**设置 → 插件 → 添加插件**，填包名 `dsh-agentcenter`。
+
+            或命令行：
+
+            ```bash
+            npm install dsh-agentcenter@${{ steps.meta.outputs.version }}
+            ```
+
+            也可以直接装本 Release 附带的 tarball（内容与 npm 上逐字节一致）：
+
+            ```bash
+            npm install ./dsh-agentcenter-${{ steps.meta.outputs.version }}.tgz
+            ```
+
+            ## 校验
+
+            | 项 | 值 |
+            |---|---|
+            | npm | `dsh-agentcenter@${{ steps.meta.outputs.version }}` |
+            | tarball SHA-1 | `${{ steps.npm.outputs.shasum }}` |
+
+            环境要求：Node.js **22.15+ 或 23.8+**。
+
+            完整说明见 [README](https://github.com/xbqn/AgentCenter#readme)。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
