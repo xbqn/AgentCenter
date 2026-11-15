@@ -6,7 +6,8 @@
 - **Task center** — 12 built-in adapters scan DeepSeek Harness, Claude Code, Codex CLI, CodeBuddy, WorkBuddy, Qoder, Trae, zCode, OpenCode, AtomCode, 豆包 and 千问 session stores; statuses, active time, disk usage, todos and full conversation replay.
 - **Continue a session** — from a task's conversation, 「继续对话」 opens the original DSH session, or exports another agent's session to Markdown and starts a new DSH session **in that task's working directory** with the export referenced.
 - **Reference a session** — a composer button lists every scanned session (filter by agent) and inserts the exported file path into the draft.
-- **Scheduled scanning** — the 扫描调度 rules (interval / daily / weekly) are executed **inside the DSH host process**: every minute the plugin checks ~/.agentcenter/config.json and runs an incremental scan when due (plus the daily report only when eportAuto is explicitly enabled), then tells the open page to refresh. It stops with DSH; for unattended runs use the standalone daemon.\n- **AI daily report** — in the report detail page, 「AI 总结这一天」 asks **your own DSH model** to rewrite that day; 「保存为今日日报」 stores it as a 「日报总结（AI）」 section **above** the deterministic report, never replacing it.
+- **Scheduled scanning** — the 扫描调度 rules (interval / daily / weekly) are executed **inside the DSH host process**: every minute the plugin checks ~/.agentcenter/config.json and runs an incremental scan when due (plus the daily report only when reportAuto is explicitly enabled), then tells the open page to refresh. It stops with DSH; for unattended runs use the standalone daemon.
+- **AI daily report** — in the report detail page, 「AI 总结这一天」 asks **your own DSH model** to rewrite that day; 「保存为今日日报」 stores it as a 「日报总结（AI）」 section **above** the deterministic report, never replacing it.
 
 ## Install
 
@@ -16,7 +17,9 @@ From npm, through the DSH Plugin Manager (**Settings → Plugins → Add plugin*
 dsh-agentcenter
 ```
 
-Requires **Node 22.15+ / 23.8+** for reading DeepSeek Harness .zstd sessions; on older Node the service still starts and every other agent scans — those sessions are reported as skipped with the reason.\n\nThe package is self-contained: the runtime it serves (`h5/` + `core/` + the parsing-rule docs) ships inside it under `app/`, so **no local checkout and no `root` setting are needed**.
+Requires **Node 22.15+ / 23.8+** for reading DeepSeek Harness .zstd sessions; on older Node the service still starts and every other agent scans — those sessions are reported as skipped with the reason.
+
+The package is self-contained: the runtime it serves (`h5/` + `core/` + the parsing-rule docs) ships inside it under `app/`, so **no local checkout and no `root` setting are needed**.
 
 Develop against a checkout instead? Add the plugin row that points at this directory:
 
