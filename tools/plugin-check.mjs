@@ -128,7 +128,7 @@ function harness(config, options = {}) {
   };
 }
 
-const primary = harness({ root: ROOT, dataDir: DATA_DIR, port: PORT, showInMore: true, showInComposer: true });
+const primary = harness({ root: ROOT, dataDir: DATA_DIR, port: PORT, showInComposer: true });
 const routes = primary.routes;
 const written = primary.written;
 
@@ -179,27 +179,33 @@ check(
   before.body.port === PORT && before.body.url === BASE + '/' && before.body.root === ROOT && before.body.dataDir === DATA_DIR,
   JSON.stringify({ port: before.body.port, url: before.body.url }),
 );
-check('service script and index are reported', before.body.serveExists === true && before.body.hasIndex === true);
+// 公开仓库的 data/ 里没有真实索引（只有说明文件），所以 hasIndex 随环境变化；
+// 这里断言它准确反映了索引是否存在，而不是硬性要求 data/ 里带数据。
+check(
+  'service script and index are reported',
+  before.body.serveExists === true && before.body.hasIndex === fs.existsSync(path.join(REPO, 'data', 'index.json')),
+);
 
 // 3. row config reachable to the page
 const config = await call('/api/agentcenter/config', 'GET');
 check('config is 200', config.status === 200);
-check('config exposes both entry flags', config.body.showInMore === true && config.body.showInComposer === true);
+check('config exposes the composer entry flag', config.body.showInComposer === true);
+check('config no longer exposes a placement flag (DSH owns the More menu)', config.body.showInMore === undefined);
 check('config is savable from the settings page', config.body.savable === true);
 check('config carries the raw row values', config.body.config?.port === PORT && config.body.config?.root === ROOT);
-const hiddenRoutes = harness({ root: ROOT, dataDir: DATA_DIR, port: PORT, showInMore: false, showInComposer: false }).routes;
+const hiddenRoutes = harness({ root: ROOT, dataDir: DATA_DIR, port: PORT, showInComposer: false }).routes;
 const hidden = await hiddenRoutes.get('/api/agentcenter/config').fetch(new Request('http://127.0.0.1/api/agentcenter/config', { method: 'GET' }));
 const hiddenBody = await hidden.json();
-check('explicit false hides both entries', hiddenBody.showInMore === false && hiddenBody.showInComposer === false);
+check('explicit false hides the composer entry', hiddenBody.showInComposer === false);
 
 // 3b. Settings → AgentCenter writes through the config editor (the profile config layer)
-const savedSettings = await call('/api/agentcenter/settings', 'POST', { showInMore: false });
+const savedSettings = await call('/api/agentcenter/settings', 'POST', { showInComposer: false });
 check('settings writes through the config editor', savedSettings.body.ok === true && written.length === 1, JSON.stringify(written[0] && written[0].config));
-check('settings keeps the untouched fields', written[0]?.config?.showInComposer === true && written[0]?.config?.port === PORT);
+check('settings keeps the untouched fields', written[0]?.config?.showInComposer === false && written[0]?.config?.port === PORT);
 const restarted = harness(primary.entry.config).routes;
 const restartedConfig = await restarted.get('/api/agentcenter/config').fetch(new Request('http://127.0.0.1/api/agentcenter/config', { method: 'GET' }));
 const restartedBody = await restartedConfig.json();
-check('the saved value is what the restarted plugin reads', restartedBody.config.showInMore === false && restartedBody.showInMore === false);
+check('the saved value is what the restarted plugin reads', restartedBody.config.showInComposer === false && restartedBody.showInComposer === false);
 const badPort = await call('/api/agentcenter/settings', 'POST', { port: 70000 });
 check('settings rejects an invalid port', badPort.status === 400, badPort.body.error);
 const emptyPatch = await call('/api/agentcenter/settings', 'POST', { nope: 1 });
@@ -207,7 +213,7 @@ check('settings rejects an empty patch', emptyPatch.status === 400);
 const noEditorRoutes = harness({ root: ROOT, dataDir: DATA_DIR, port: PORT }, { noEditor: true }).routes;
 const noEditorConfig = await noEditorRoutes.get('/api/agentcenter/config').fetch(new Request('http://127.0.0.1/api/agentcenter/config', { method: 'GET' }));
 check('config reports not savable without a config editor', (await noEditorConfig.json()).savable === false);
-const noEditorWrite = await noEditorRoutes.get('/api/agentcenter/settings').fetch(new Request('http://127.0.0.1/api/agentcenter/settings', { method: 'POST', body: JSON.stringify({ showInMore: false }) }));
+const noEditorWrite = await noEditorRoutes.get('/api/agentcenter/settings').fetch(new Request('http://127.0.0.1/api/agentcenter/settings', { method: 'POST', body: JSON.stringify({ showInComposer: false }) }));
 check('settings refuse to write without a config editor', noEditorWrite.status === 500);
 
 // 4. stop refuses when the service is not ours (or is already down)

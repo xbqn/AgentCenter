@@ -2,7 +2,7 @@
 
 **AgentCenter for DeepSeek Harness** — a read-only task center for every AI coding agent on your machine, living inside the DSH Web UI.
 
-- **Panel page** — one entry in the left panel list opens the whole AgentCenter UI. If the local service is not running the page shows a single **启动服务** button; clicking it hosts the service **inside the DSH process** (no child process, no browser window) and swaps in the real page.
+- **Panel page** — one entry in the left panel list opens the whole AgentCenter UI. DSH 0.2.2+ keeps unpinned panels in the sidebar's **更多** (More) menu with a pin control; the plugin only supplies the icon. If the local service is not running the page shows a single **启动服务** button; clicking it hosts the service **inside the DSH process** (no child process, no browser window) and swaps in the real page.
 - **Task center** — 12 built-in adapters scan DeepSeek Harness, Claude Code, Codex CLI, CodeBuddy, WorkBuddy, Qoder, Trae, zCode, OpenCode, AtomCode, 豆包 and 千问 session stores; statuses, active time, disk usage, todos and full conversation replay.
 - **Continue a session** — from a task's conversation, 「继续对话」 opens the original DSH session, or exports another agent's session to Markdown and starts a new DSH session **in that task's working directory** with the export referenced.
 - **Reference a session** — a composer button lists every scanned session (filter by agent) and inserts the exported file path into the draft.
@@ -47,13 +47,14 @@ No YAML editing. Everything lives in **DSH → Settings → AgentCenter** and is
 
 | Setting | Meaning | Default |
 |---|---|---|
-| 放入更多中 | On: entry sits inside the panel list's More menu. Off: its own panel row above More | on |
 | 输入区显示「引用历史会话」 | the composer reference button | on |
 | 本地服务端口 | port the panel's Start service listens on | `7788` |
 | AgentCenter 目录 | advanced: point at a source checkout; empty uses the bundled `app/` | empty |
 | 数据目录 | where the index/reports/exports/links live | `~/.agentcenter` |
 | 日报模型 | model used by the AI report — picked from **your DSH provider list**, no API key stored here | not selected |
 | 日报格式 | the Markdown skeleton the model fills; empty uses the built-in by-project template | empty |
+
+Where the sidebar entry sits is no longer a plugin setting: DSH 0.2.2+ owns the sidebar's **更多** (More) menu, lists every unpinned panel there with a pin control, and keeps the choice in memory. The plugin only contributes its panel icon.
 
 ## Continue / reference a session
 
@@ -71,7 +72,7 @@ Both entry points hand the model a **file path**, never a wall of text:
 ## How it talks to DSH
 
 - **Host half** (`index.js`) registers 16 authenticated Fetch routes on the `/api` channel: service lifecycle, row config read/write, session index, transcript export, reference materialization, parsing-rule list, scan, report AI generation/saving, and the task→session link table. It uses `ctx.llm` for the AI report, so the model and key are whatever DSH already has configured.
-- **Client half** (`client.js`) registers the panel page (`main`), the entry (`sidebar.panellist` / `sidebar.panellist.actions`), the composer button (`conversation.input.left`), the settings page (`settings.section`) and the session picker (`shell.overlay`) — all with `--dsw-*` theme tokens only, no Harness client package imports.
+- **Client half** (`client.js`) registers the panel page (`main`), the panel icon (`sidebar.panellist`), the composer button (`conversation.input.left`), the settings page (`settings.section`) and the session picker (`shell.overlay`) — all with `--dsw-*` theme tokens only, no Harness client package imports.
 - The panel page embeds the AgentCenter UI in a frame and bridges it over `postMessage` (`ping | links | continue | open-session | scan | ai-report | save-report`), because the frame cannot reach DSH services itself.
 
 ## Verification

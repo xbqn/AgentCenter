@@ -7,7 +7,7 @@
  *   GET  /api/agentcenter/status      probe the service (running? port, url, index?)
  *   POST /api/agentcenter/start       host `h5/serve.mjs` in this process and wait until it answers
  *   POST /api/agentcenter/stop        close the server this Host started
- *   GET  /api/agentcenter/config      row config as the page reads it (`showInMore` gating the More entry)
+ *   GET  /api/agentcenter/config      row config as the page reads it
  *   GET  /api/agentcenter/sessions    task list from `data/summary.json`, filtered by `q`
  *   GET  /api/agentcenter/transcript  one task's read-only markdown transcript
  *   POST /api/agentcenter/continue    how to continue a task (open its DSH Session, or import the transcript)
@@ -855,7 +855,6 @@ function rawConfig(config) {
   const raw = {};
   if (typeof config?.root === 'string' && config.root.trim() !== '') raw.root = config.root;
   if (Number.isInteger(Number(config?.port)) && Number(config?.port) > 0) raw.port = Number(config.port);
-  raw.showInMore = config?.showInMore !== false;
   raw.showInComposer = config?.showInComposer !== false;
   raw.reportModel = typeof config?.reportModel === 'string' ? config.reportModel : '';
   raw.reportFormat = typeof config?.reportFormat === 'string' ? config.reportFormat : '';
@@ -866,10 +865,10 @@ function rawConfig(config) {
 /** Validate one settings patch; returns the normalized patch or a message. */
 function normalizePatch(input) {
   const patch = {};
-  for (const key of ['root', 'port', 'showInMore', 'showInComposer', 'reportModel', 'reportFormat', 'dataDir']) {
+  for (const key of ['root', 'port', 'showInComposer', 'reportModel', 'reportFormat', 'dataDir']) {
     if (!Object.hasOwn(input, key)) continue;
     const value = input[key];
-    if (key === 'showInMore' || key === 'showInComposer') {
+    if (key === 'showInComposer') {
       if (typeof value !== 'boolean') return { error: `${key} 必须是布尔值` };
       patch[key] = value;
       continue;
@@ -903,7 +902,7 @@ function entryOf(ctx) {
 
 /**
  * @param ctx - Host context.
- * @param config - Bundle row config (`root`, `port`, `showInMore`, `showInComposer`);
+ * @param config - Bundle row config (`root`, `port`, `showInComposer`);
  *   every one of them is also editable from Settings → AgentCenter, which writes
  *   the profile's config layer through `ctx.configEditor`.
  */
@@ -911,9 +910,8 @@ export function apply(ctx, config = {}) {
   const root = resolveRoot(config);
   DATA_DIR = resolveDataDir(config);
   const port = resolvePort(config);
-  // 只有显式 false 才把「更多」里的这一行藏起来；缺省/其它值一律显示。
-  const showInMore = config?.showInMore !== false;
-  // 同理：只有显式 false 才关掉输入区的「引用历史会话」按钮。
+  // 只有显式 false 才关掉输入区的「引用历史会话」按钮。
+  // 侧栏入口不再由插件决定位置：DSH 0.2.2+ 的「更多」菜单自己列出未钉住的模块。
   const showInComposer = config?.showInComposer !== false;
   ctx.logger?.info?.(`agentcenter: app=${root} data=${DATA_DIR} port=${port}`);
 
@@ -1010,11 +1008,11 @@ export function apply(ctx, config = {}) {
           fetch: async () => {
             const savable = typeof ctx.get('configEditor')?.edit === 'function' && entryOf(ctx) !== undefined;
             try {
-              // showInMore / showInComposer 决定两个入口是否存在，页面在挂载时读它；
+              // showInComposer 决定输入区入口是否存在，页面在挂载时读它；
               // `config` 是设置页要编辑的原始行配置（缺省字段不补默认值，避免把默认值写进配置层）。
-              return json({ ...(await describe(root, port)), showInMore, showInComposer, config: rawConfig(config), savable });
+              return json({ ...(await describe(root, port)), showInComposer, config: rawConfig(config), savable });
             } catch (error) {
-              return json({ ok: false, showInMore, showInComposer, config: rawConfig(config), savable, error: messageOf(error) });
+              return json({ ok: false, showInComposer, config: rawConfig(config), savable, error: messageOf(error) });
             }
           },
         }),

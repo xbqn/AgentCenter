@@ -1,8 +1,8 @@
 /**
  * Client half of the AgentCenter bundle.
  *
- * - `sidebar.panellist.actions` — one row in the left panel list's More menu,
- *   shown only while the plugin's `showInMore` config is true.
+ * - `sidebar.panellist` — the panel icon. DSH owns the sidebar button and its
+ *   "更多" (More) menu, which lists unpinned panels with pin/unpin controls.
  * - `main` (key `agentcenter`) — the AgentCenter page: a start gate while the
  *   local service is down, the real page in an embedded frame once it runs.
  * - `conversation.input.left` — a composer control that inserts a previous
@@ -70,8 +70,6 @@ window.__ModuleLoader__.load({
       'settings.label': 'AgentCenter',
       'settings.title': 'AgentCenter',
       'settings.lead': 'The switches below live in this profile\u2019s plugin configuration and take effect right away.',
-      'settings.showInMore': 'Combine into the More menu',
-      'settings.showInMore.desc': 'On: the entry sits inside the left panel list\u2019s More menu. Off: it shows as its own panel row right above More.',
       'settings.showInComposer': 'Show the composer reference control',
       'settings.showInComposer.desc': 'The button left of the message input that inserts an earlier session\u2019s transcript into the draft.',
       'settings.port': 'Local service port',
@@ -140,8 +138,6 @@ window.__ModuleLoader__.load({
       'settings.label': 'AgentCenter',
       'settings.title': 'AgentCenter',
       'settings.lead': '下面这些开关存在当前 profile 的插件配置里，改完立即生效。',
-      'settings.showInMore': '放入更多中',
-      'settings.showInMore.desc': '选中时入口收在左侧「全局面板」的「更多」菜单里；不选则作为独立面板行显示在「更多」上方。',
       'settings.showInComposer': '输入区显示「引用历史会话」',
       'settings.showInComposer.desc': '消息输入框左侧那个按钮，用来把某段历史会话的内容插入当前草稿。',
       'settings.port': '本地服务端口',
@@ -287,12 +283,6 @@ window.__ModuleLoader__.load({
 .dshac-veil{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:var(--dsw-alias-bg-base)}
 .dshac-spinner{width:15px;height:15px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:dshac-spin .8s linear infinite;opacity:.65;flex:none}
 @keyframes dshac-spin{to{transform:rotate(360deg)}}
-.dshac-menuItem{border-radius:var(--dsw-radius-md,8px);cursor:pointer;width:100%;min-height:34px;color:var(--dsw-alias-label-primary);text-align:left;background:0 0;border:none;align-items:center;gap:6px;padding:6px 8px;font-size:13px;line-height:20px;display:flex;font-family:inherit}
-@media (hover:hover){.dshac-menuItem:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12))}}
-.dshac-menuItem:focus-visible{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));outline:none}
-.dshac-menuIcon{width:14px;height:14px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));flex:none;display:inline-flex;align-items:center;justify-content:center}
-.dshac-menuIcon svg{width:14px;height:14px}
-.dshac-menuLabel{text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;overflow:hidden}
 /* composer control */
 .dshac-tool{height:28px;min-width:28px;padding:0 7px;border:0;border-radius:var(--dsw-radius-md,8px);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .dshac-tool:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(127,127,127,.12));color:var(--dsw-alias-label-primary)}
@@ -366,35 +356,9 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** The sidebar panel row, used when the entry is not combined into More. */
+    /** The sidebar panel icon (DSH resolves its button, label and More row from this). */
     function PanelEntry({ size }) {
       return h(Glyph, { size: size ?? 16 });
-    }
-
-    /** The sidebar panel-list More row: close the menu, then open the page. */
-    function MoreEntry(props) {
-      const { open, onDismiss } = props;
-      const t = translator(props);
-      return h(
-        React.Fragment,
-        null,
-        h('style', { key: 'style' }, CSS),
-        h(
-          'button',
-          {
-            key: 'row',
-            type: 'button',
-            role: 'menuitem',
-            className: 'dshac-menuItem',
-            onClick: () => {
-              onDismiss();
-              open();
-            },
-          },
-          h('span', { className: 'dshac-menuIcon' }, h(Glyph, { size: 14 })),
-          h('span', { className: 'dshac-menuLabel' }, t('entry.label')),
-        ),
-      );
     }
 
     /** The page: a start gate while the service is stopped, the real UI while it runs. */
@@ -674,11 +638,11 @@ window.__ModuleLoader__.load({
         resolved: { root: '', port: '', dataDir: '' },
         models: [],
         defaultFormat: '',
-        fields: { showInMore: true, showInComposer: true, port: '', root: '', dataDir: '', reportModel: '', reportFormat: '' },
+        fields: { showInComposer: true, port: '', root: '', dataDir: '', reportModel: '', reportFormat: '' },
         saved: { port: '', root: '' },
       });
-      /* 两个开关的「已保存值」，供乐观应用失败时回滚 */
-      const savedFlags = useRef({ showInMore: true, showInComposer: true });
+      /* 入口开关的「已保存值」，供乐观应用失败时回滚 */
+      const savedFlags = useRef({ showInComposer: true });
 
       useEffect(() => {
         mounted.current = true;
@@ -698,7 +662,7 @@ window.__ModuleLoader__.load({
             root: typeof config.root === 'string' ? config.root : '',
             dataDir: typeof config.dataDir === 'string' ? config.dataDir : '',
           };
-          savedFlags.current = { showInMore: config.showInMore !== false, showInComposer: config.showInComposer !== false };
+          savedFlags.current = { showInComposer: config.showInComposer !== false };
           setState((prev) => ({
             ...prev,
             ready: true,
@@ -706,7 +670,6 @@ window.__ModuleLoader__.load({
             service: body.running === true ? `运行中 · ${body.url || ''}` : '未启动',
             resolved: { root: body.root || '', port: body.port || '', dataDir: body.dataDir || '' },
             fields: {
-              showInMore: savedFlags.current.showInMore,
               showInComposer: savedFlags.current.showInComposer,
               port: saved.port,
               root: saved.root,
@@ -741,9 +704,9 @@ window.__ModuleLoader__.load({
 
       const save = useCallback(
         async (patch, label) => {
-          // 入口开关先乐观生效（不必等写入 + 插件重载），失败再回滚。
+          // 输入区开关先乐观生效（不必等写入 + 插件重载），失败再回滚。
           const flags = {};
-          for (const key of ['showInMore', 'showInComposer']) {
+          for (const key of ['showInComposer']) {
             if (Object.hasOwn(patch, key)) flags[key] = patch[key];
           }
           const hasFlags = Object.keys(flags).length > 0;
@@ -755,7 +718,7 @@ window.__ModuleLoader__.load({
             if (!hasFlags) return;
             if (applyConfig !== null) applyConfig(before);
             if (mounted.current) {
-              setState((prev) => ({ ...prev, fields: { ...prev.fields, showInMore: before.showInMore, showInComposer: before.showInComposer } }));
+              setState((prev) => ({ ...prev, fields: { ...prev.fields, showInComposer: before.showInComposer } }));
             }
           };
 
@@ -804,7 +767,7 @@ window.__ModuleLoader__.load({
       const toggle = (key) => (value) => {
         if (disabled) return;
         setState((prev) => ({ ...prev, fields: { ...prev.fields, [key]: value } }));
-        void save({ [key]: value }, t(key === 'showInMore' ? 'settings.showInMore' : 'settings.showInComposer'));
+        void save({ [key]: value }, t(key === 'showInComposer' ? 'settings.showInComposer' : key));
       };
 
       const commitPort = () => {
@@ -873,7 +836,6 @@ window.__ModuleLoader__.load({
           ? h(
               React.Fragment,
               null,
-              switchRow('showInMore', t('settings.showInMore'), t('settings.showInMore.desc')),
               switchRow('showInComposer', t('settings.showInComposer'), t('settings.showInComposer.desc')),
               row(
                 t('settings.port'),
@@ -1194,7 +1156,7 @@ window.__ModuleLoader__.load({
     /**
      * @param ctx - Client context with slots, locale, and the optional workspace,
      *   session, and conversation services.
-     * @param config - Host-provided config (`showInMore`) resolved at activation.
+     * @param config - Host-provided config resolved at activation.
      */
     function applyWith(ctx) {
       ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'agentcenter: locale');
@@ -1432,27 +1394,18 @@ window.__ModuleLoader__.load({
         ctx.slots.register({ name: 'main', key: PANEL, locale: NS, inject: () => ({ bridge }) }, AgentCenterPage),
       );
 
-      /* ---- entry placement, live ------------------------------------------------
-         `showInMore` decides WHERE the entry sits, not whether it exists:
-           true  → a row inside the panel list's More menu
-           false → its own panel row, right above More
-         A store keeps both placements (and the composer control) in sync with the
-         settings page, so a save takes effect without waiting for a plugin restart;
-         a focus refetch covers edits made outside this page. */
-      const configStore = createStore({ showInMore: true, showInComposer: true, ready: false });
-      const openPanel = () => {
-        const layout = ctx.get('layout');
-        if (layout === undefined || typeof layout.selectPanel !== 'function') {
-          ctx.logger?.warn?.('agentcenter: the layout service is unavailable');
-          return;
-        }
-        layout.selectPanel(PANEL);
-      };
+      /* ---- entry placement -------------------------------------------------------
+         The panel icon is registered unconditionally; DSH's own sidebar "更多"
+         menu (0.2.2+) lists unpinned panels and owns pin/unpin, so the plugin no
+         longer decides the destination itself. A store keeps the composer control
+         in sync with the settings page without waiting for a plugin restart, and a
+         focus refetch covers edits made outside this page. */
+      const configStore = createStore({ showInComposer: true, ready: false });
       const readConfig = () => {
         call('/api/agentcenter/config', { method: 'GET' })
           .then((result) => {
             const body = result.ok && result.body ? result.body : {};
-            configStore.set({ showInMore: body.showInMore !== false, showInComposer: body.showInComposer !== false, ready: true });
+            configStore.set({ showInComposer: body.showInComposer !== false, ready: true });
           })
           .catch(() => configStore.set({ ready: true }));
       };
@@ -1497,32 +1450,14 @@ window.__ModuleLoader__.load({
         ),
       );
 
-      // ---- entry: inside the More menu, or its own panel row ----------------------
-      ctx.slots.inject('sidebar.panellist.actions', () =>
-        syncEntry(
-          (config) => config.showInMore === true,
-          () =>
-            ctx.slots.register(
-              {
-                name: 'sidebar.panellist.actions',
-                id: 'agentcenter',
-                order: 40,
-                label: () => t('entry.label'),
-                locale: NS,
-                inject: () => ({ open: openPanel }),
-              },
-              MoreEntry,
-            ),
-        ),
-      );
+      // ---- entry: the official sidebar panel icon --------------------------------
+      // DSH 0.2.2+ owns the sidebar's "更多" (More) menu itself: it lists every
+      // unpinned panel, with pin/unpin controls, so this plugin only registers the
+      // icon. Registering a row of our own would duplicate the entry.
       ctx.slots.inject('sidebar.panellist', () =>
-        syncEntry(
-          (config) => config.showInMore === false,
-          () =>
-            ctx.slots.register(
-              { name: 'sidebar.panellist', id: PANEL, order: 40, label: () => t('entry.label'), locale: NS },
-              PanelEntry,
-            ),
+        ctx.slots.register(
+          { name: 'sidebar.panellist', id: PANEL, order: 40, label: () => t('entry.label'), locale: NS },
+          PanelEntry,
         ),
       );
 
